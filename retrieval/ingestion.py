@@ -56,6 +56,12 @@ def chunk_text(
 
     while start < text_length:
         end = start + chunk_size
+
+        if end < text_length and text[end] != " ":
+            last_space = text.rfind(" ", start, end)
+            if last_space > start:
+                end = last_space
+
         chunk = text[start:end]
 
         if len(chunk.strip()) >= MIN_CHUNK_SIZE:

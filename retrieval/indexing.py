@@ -19,21 +19,28 @@ from .ingestion import DocumentChunk, ingest_all_documents
 
 load_dotenv()
 
+# Cached clients so we don't recreate them on every call
+_openai_client: Optional[OpenAI] = None
+_chroma_client: Optional[ClientAPI] = None
 
-def create_openai_client() -> OpenAI:
-    """Create OpenAI client using API key from environment."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY not found in environment variables. "
-            "Please add it to your .env file."
-        )
-    return OpenAI(api_key=api_key)
+
+def get_openai_client() -> OpenAI:
+    """Get or create a cached OpenAI client."""
+    global _openai_client
+    if _openai_client is None:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY not found in environment variables. "
+                "Please add it to your .env file."
+            )
+        _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
 
 
 def generate_embeddings(texts: List[str], model: str = EMBEDDING_MODEL) -> List[List[float]]:
     """Generate embeddings for text using OpenAI API."""
-    client = create_openai_client()
+    client = get_openai_client()
 
     try:
         response = client.embeddings.create(
@@ -56,13 +63,15 @@ def batch_generate_embeddings(
     all_embeddings = []
     total_batches = (len(texts) + batch_size - 1) // batch_size
 
-    print(f"Generating embeddings for {len(texts)} texts in {total_batches} batches...")
+    print(
+        f"Generating embeddings for {len(texts)} texts in {total_batches} batches...")
 
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
         batch_num = i // batch_size + 1
 
-        print(f"  Processing batch {batch_num}/{total_batches} ({len(batch)} texts)...")
+        print(
+            f"  Processing batch {batch_num}/{total_batches} ({len(batch)} texts)...")
 
         embeddings = generate_embeddings(batch, model)
         all_embeddings.extend(embeddings)
@@ -71,18 +80,16 @@ def batch_generate_embeddings(
     return all_embeddings
 
 
-def create_chroma_client(persist_directory: Path = CHROMA_DB_DIR) -> ClientAPI:
-    """Create ChromaDB client with persistence."""
-    persist_directory.mkdir(parents=True, exist_ok=True)
-
-    client = chromadb.PersistentClient(
-        path=str(persist_directory),
-        settings=Settings(
-            anonymized_telemetry=False
+def get_chroma_client(persist_directory: Path = CHROMA_DB_DIR) -> ClientAPI:
+    """Get or create a cached ChromaDB persistent client."""
+    global _chroma_client
+    if _chroma_client is None:
+        persist_directory.mkdir(parents=True, exist_ok=True)
+        _chroma_client = chromadb.PersistentClient(
+            path=str(persist_directory),
+            settings=Settings(anonymized_telemetry=False)
         )
-    )
-
-    return client
+    return _chroma_client
 
 
 def create_or_get_collection(
@@ -100,7 +107,10 @@ def create_or_get_collection(
 
     collection = client.get_or_create_collection(
         name=collection_name,
-        metadata={"description": "Retail operations documents with embeddings"}
+        metadata={
+            "hnsw:space": DISTANCE_METRIC,
+            "description": "Retail operations documents with embeddings"
+        }
     )
 
     return collection
@@ -165,19 +175,21 @@ def build_index(reset: bool = False) -> Optional[chromadb.Collection]:
         return None
 
     print(f"\nSetting up ChromaDB...")
-    client = create_chroma_client()
+    client = get_chroma_client()
     collection = create_or_get_collection(client, reset=reset)
 
     existing_count = collection.count()
     if existing_count > 0 and not reset:
-        print(f"Collection '{COLLECTION_NAME}' already has {existing_count} documents.")
+        print(
+            f"Collection '{COLLECTION_NAME}' already has {existing_count} documents.")
         print("Use reset=True to rebuild the index.")
         return collection
 
     print(f"\nIndexing chunks...")
     index_chunks(chunks, collection)
 
-    print(f"\nIndex complete: {collection.count()} documents in '{collection.name}'")
+    print(
+        f"\nIndex complete: {collection.count()} documents in '{collection.name}'")
     print(f"Database location: {CHROMA_DB_DIR}")
 
     return collection
