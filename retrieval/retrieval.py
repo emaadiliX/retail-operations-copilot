@@ -32,11 +32,18 @@ class RetrievedChunk:
         )
 
 
+_collection_cache: Dict[str, chromadb.Collection] = {}
+
+
 def get_collection(collection_name: str = COLLECTION_NAME) -> Optional[chromadb.Collection]:
-    """Get an existing ChromaDB collection by name."""
+    """Get an existing ChromaDB collection by name. Cached after first fetch."""
+    if collection_name in _collection_cache:
+        return _collection_cache[collection_name]
+
     try:
         client = get_chroma_client()
         collection = client.get_collection(name=collection_name)
+        _collection_cache[collection_name] = collection
         return collection
     except Exception as e:
         print(f"Error getting collection: {str(e)}")
