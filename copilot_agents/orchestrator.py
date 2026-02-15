@@ -1,0 +1,221 @@
+"""Runs the full Plan -> Research -> Draft -> Verify -> Deliver pipeline."""
+
+from typing import Optional
+
+from agents import Runner
+
+from .models import (
+    ExecutionPlan,
+    ResearchNotes,
+    Deliverable,
+    VerificationReport,
+    PipelineResult,
+)
+from .planner import planner_agent
+from .researcher import researcher_agent
+from .writer import writer_agent
+from .verifier import verifier_agent
+from .tracing import TraceLog
+
+
+def _warm_retrieval():
+    """Quick check that ChromaDB is reachable before we start the pipeline."""
+    from retrieval.indexing import get_chroma_client
+    from retrieval.config import COLLECTION_NAME
+    try:
+        client = get_chroma_client()
+        collection = client.get_collection(name=COLLECTION_NAME)
+        count = collection.count()
+        print(f"Retrieval layer ready: {count} chunks in '{COLLECTION_NAME}'")
+    except Exception as e:
+        print(f"WARNING: Could not verify retrieval layer: {e}")
+
+
+def _serialize(obj) -> str:
+    """Turn a Pydantic model into a JSON string so we can pass it between agents."""
+    if hasattr(obj, "model_dump_json"):
+        return obj.model_dump_json(indent=2)
+    return str(obj)
+
+
+def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> PipelineResult:
+    """Run all five stages of the copilot pipeline and return the final result."""
+
+    if trace is None:
+        trace = TraceLog()
+
+    trace.start_pipeline()
+    _warm_retrieval()
+
+    # Stage 1 - Plan
+    plan_entry = trace.begin("Planner Agent", "plan", input_preview=user_request)
+    try:
+        plan_result = Runner.run_sync(
+            planner_agent,
+            f"Create an execution plan for the following business request:\n\n{user_request}",
+        )
+        plan: ExecutionPlan = plan_result.final_output
+        trace.complete(
+            plan_entry,
+            output_preview=plan.task_summary,
+            sub_tasks=len(plan.sub_tasks),
+            queries=len(plan.research_queries),
+        )
+    except Exception as e:
+        trace.fail(plan_entry, str(e))
+        raise RuntimeError(f"Planner Agent failed: {e}") from e
+
+    # Stage 2 - Research
+    research_input = (
+        f"Execute the following research plan. Use the search tools to find "
+        f"information for each query.\n\n"
+        f"EXECUTION PLAN:\n{_serialize(plan)}\n\n"
+        f"ORIGINAL USER REQUEST:\n{user_request}"
+    )
+    research_entry = trace.begin(
+        "Research Agent", "research", input_preview=plan.task_summary
+    )
+    try:
+        research_result = Runner.run_sync(
+            researcher_agent, research_input, max_turns=25
+        )
+        research: ResearchNotes = research_result.final_output
+        trace.complete(
+            research_entry,
+            output_preview=research.summary,
+            findings=len(research.findings),
+            gaps=len(research.gaps),
+            sources=len(research.sources_used),
+        )
+    except Exception as e:
+        trace.fail(research_entry, str(e))
+        raise RuntimeError(f"Research Agent failed: {e}") from e
+
+    # Stage 3 - Draft
+    writer_input = (
+        f"Using the research notes below, produce the final deliverable.\n\n"
+        f"ORIGINAL REQUEST:\n{user_request}\n\n"
+        f"RESEARCH NOTES:\n{_serialize(research)}"
+    )
+    draft_entry = trace.begin(
+        "Writer Agent", "draft", input_preview=research.summary
+    )
+    try:
+        draft_result = Runner.run_sync(writer_agent, writer_input)
+        draft: Deliverable = draft_result.final_output
+        trace.complete(
+            draft_entry,
+            output_preview=draft.executive_summary[:200],
+            action_items=len(draft.action_items),
+            sources=len(draft.sources),
+        )
+    except Exception as e:
+        trace.fail(draft_entry, str(e))
+        raise RuntimeError(f"Writer Agent failed: {e}") from e
+
+    # Stage 4 - Verify
+    verify_input = (
+        f"Verify the following deliverable against the research notes.\n\n"
+        f"DRAFT DELIVERABLE:\n{_serialize(draft)}\n\n"
+        f"RESEARCH NOTES (with citations):\n{_serialize(research)}"
+    )
+    verify_entry = trace.begin(
+        "Verifier Agent", "verify", input_preview=draft.executive_summary[:120]
+    )
+    try:
+        verify_result = Runner.run_sync(verifier_agent, verify_input)
+        verification: VerificationReport = verify_result.final_output
+        trace.complete(
+            verify_entry,
+            output_preview=verification.overall_verdict,
+            claims_checked=len(verification.verified_claims),
+            unsupported=len(verification.unsupported_claims),
+        )
+    except Exception as e:
+        trace.fail(verify_entry, str(e))
+        raise RuntimeError(f"Verifier Agent failed: {e}") from e
+
+    # Stage 5 - Deliver (apply corrections if verification didn't fully pass)
+    deliver_entry = trace.begin(
+        "Delivery", "deliver", input_preview=verification.overall_verdict
+    )
+
+    verdict = verification.overall_verdict.strip().upper()
+    if verdict == "PASS":
+        final_deliverable = draft
+    else:
+        final_deliverable = Deliverable(
+            executive_summary=(
+                verification.corrected_executive_summary
+                or draft.executive_summary
+            ),
+            client_email=(
+                verification.corrected_client_email
+                or draft.client_email
+            ),
+            action_items=(
+                verification.corrected_action_items
+                or draft.action_items
+            ),
+            sources=draft.sources,
+        )
+
+    trace.complete(deliver_entry, output_preview="Final deliverable assembled")
+    trace.end_pipeline()
+
+    return PipelineResult(
+        plan=plan,
+        research=research,
+        draft=draft,
+        verification=verification,
+        final_deliverable=final_deliverable,
+    )
+
+
+def format_deliverable(deliverable: Deliverable) -> str:
+    """Format a Deliverable as a readable markdown string."""
+    action_rows = []
+    for i, item in enumerate(deliverable.action_items, 1):
+        action_rows.append(
+            f"| {i} | {item.action} | {item.owner} | {item.due_date} | {item.confidence} |"
+        )
+    actions_table = (
+        "| # | Action | Owner | Due Date | Confidence |\n"
+        "|---|--------|-------|----------|------------|\n"
+        + "\n".join(action_rows)
+    )
+
+    sources_list = "\n".join(f"- {s}" for s in deliverable.sources)
+
+    return (
+        f"# Executive Summary\n\n{deliverable.executive_summary}\n\n"
+        f"---\n\n"
+        f"# Client Email\n\n{deliverable.client_email}\n\n"
+        f"---\n\n"
+        f"# Action Items\n\n{actions_table}\n\n"
+        f"---\n\n"
+        f"# Sources\n\n{sources_list}"
+    )
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    request = (
+        "Analyze the key challenges and best practices for building "
+        "omnichannel retail operations. Recommend actionable strategies "
+        "for a mid-sized CPG company looking to improve inventory accuracy "
+        "and fulfillment speed."
+    )
+
+    print(f"User request:\n{request}\n")
+    print("Running pipeline...\n")
+
+    log = TraceLog()
+    result = run_pipeline(request, trace=log)
+
+    print(log.format_for_display())
+    print()
+    print(format_deliverable(result.final_deliverable))

@@ -49,7 +49,7 @@ CRITICAL RULES:
 """
 
 
-writer_agent = Agent(
+writer_agent = Agent(  # type: ignore
     name="Writer Agent",
     instructions=WRITER_INSTRUCTIONS,
     model="gpt-4o-mini",
