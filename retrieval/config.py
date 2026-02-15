@@ -26,7 +26,7 @@ EMBEDDING_DIMENSION = 1536
 
 TOP_K_RESULTS = 5
 
-MIN_SIMILARITY_SCORE = 0.5
+MIN_SIMILARITY_SCORE = 0.35
 
 # Name of the ChromaDB collection
 COLLECTION_NAME = "retail_operations_docs"

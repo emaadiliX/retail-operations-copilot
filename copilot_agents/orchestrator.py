@@ -1,6 +1,6 @@
 """Runs the full Plan -> Research -> Draft -> Verify -> Deliver pipeline."""
 
-from typing import Optional
+from typing import Optional, Callable
 
 from agents import Runner
 
@@ -63,11 +63,19 @@ def _serialize(obj) -> str:
     return str(obj)
 
 
-def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> PipelineResult:
+def run_pipeline(
+    user_request: str,
+    trace: Optional[TraceLog] = None,
+    on_stage_update: Optional[Callable[["TraceLog"], None]] = None,
+) -> PipelineResult:
     """Run the full Plan -> Research -> Draft -> Verify -> Deliver pipeline."""
 
     if trace is None:
         trace = TraceLog()
+
+    def _notify():
+        if on_stage_update:
+            on_stage_update(trace)
 
     trace.start_pipeline()
     _warm_retrieval()
@@ -75,6 +83,7 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
     # Stage 1 - Plan
     plan_entry = trace.begin("Planner Agent", "plan",
                              input_preview=user_request)
+    _notify()
     try:
         plan_result = Runner.run_sync(
             planner_agent,
@@ -87,8 +96,10 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
             sub_tasks=len(plan.sub_tasks),
             queries=len(plan.research_queries),
         )
+        _notify()
     except Exception as e:
         trace.fail(plan_entry, str(e))
+        _notify()
         raise RuntimeError(f"Planner Agent failed: {e}") from e
 
     # Stage 2 - Research
@@ -96,9 +107,10 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
     research_entry = trace.begin(
         "Research Agent", "research", input_preview=plan.task_summary
     )
+    _notify()
     try:
         research_result = Runner.run_sync(
-            researcher_agent, research_input, max_turns=25
+            researcher_agent, research_input, max_turns=40
         )
         research: ResearchNotes = research_result.final_output
         trace.complete(
@@ -108,8 +120,10 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
             gaps=len(research.gaps),
             sources=len(research.sources_used),
         )
+        _notify()
     except Exception as e:
         trace.fail(research_entry, str(e))
+        _notify()
         raise RuntimeError(f"Research Agent failed: {e}") from e
 
     # Stage 3 - Draft
@@ -117,6 +131,7 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
     draft_entry = trace.begin(
         "Writer Agent", "draft", input_preview=research.summary
     )
+    _notify()
     try:
         draft_result = Runner.run_sync(writer_agent, writer_input)
         draft: Deliverable = draft_result.final_output
@@ -126,8 +141,10 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
             action_items=len(draft.action_items),
             sources=len(draft.sources),
         )
+        _notify()
     except Exception as e:
         trace.fail(draft_entry, str(e))
+        _notify()
         raise RuntimeError(f"Writer Agent failed: {e}") from e
 
     # Stage 4 - Verify
@@ -135,6 +152,7 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
     verify_entry = trace.begin(
         "Verifier Agent", "verify", input_preview=draft.executive_summary[:120]
     )
+    _notify()
     try:
         verify_result = Runner.run_sync(verifier_agent, verify_input)
         verification: VerificationReport = verify_result.final_output
@@ -144,18 +162,22 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
             claims_checked=len(verification.verified_claims),
             unsupported=len(verification.unsupported_claims),
         )
+        _notify()
     except Exception as e:
         trace.fail(verify_entry, str(e))
+        _notify()
         raise RuntimeError(f"Verifier Agent failed: {e}") from e
 
     deliver_entry = trace.begin(
         "Delivery", "deliver", input_preview=verification.overall_verdict
     )
+    _notify()
 
     verdict = verification.overall_verdict.strip().upper()
     if verdict == "PASS":
         final_deliverable = draft
         trace.complete(deliver_entry, output_preview="PASS - draft used as-is")
+        _notify()
     else:
         disclaimer = _build_unsupported_disclaimer(
             verification.unsupported_claims
@@ -197,6 +219,7 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
             deliver_entry,
             output_preview=f"{verdict} - corrections applied{fallback_note}",
         )
+        _notify()
     trace.end_pipeline()
 
     return PipelineResult(

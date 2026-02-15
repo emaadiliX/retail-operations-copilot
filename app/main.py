@@ -76,6 +76,10 @@ def inject_custom_css():
     #MainMenu { visibility: hidden !important; }
     footer { visibility: hidden !important; }
     [data-testid="stHeader"] {
+        height: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
         background: transparent !important;
         border-bottom: none !important;
     }
@@ -86,34 +90,73 @@ def inject_custom_css():
     ::-webkit-scrollbar-thumb { background: #223149; border-radius: 10px; }
 
     /* ============================================================
-       SIDEBAR  –  only color overrides, let Streamlit handle layout
+       SIDEBAR
        ============================================================ */
     section[data-testid="stSidebar"] {
         background: #0b101a !important;
-        width: 21rem !important;
-        min-width: 21rem !important;
+        width: 16rem !important;
+        min-width: 16rem !important;
+        max-width: 16rem !important;
         transform: none !important;
+        border-right: 1px solid #1e293b !important;
     }
     section[data-testid="stSidebar"] > div {
         background: #0b101a !important;
+        padding: 0 !important;
     }
     section[data-testid="stSidebar"] hr {
-        border-color: #1e293b !important;
-        margin: 0.5rem 0 !important;
+        display: none !important;
+    }
+    /* Remove default top padding from sidebar containers */
+    section[data-testid="stSidebar"] > div > div:first-child {
+        padding-top: 0 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stBlock-container"] {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    /* Remove vertical gaps between sidebar items */
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+    }
+    /* Hide scrollbar */
+    section[data-testid="stSidebar"] > div > div:first-child,
+    section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        scrollbar-width: none !important;
+    }
+    section[data-testid="stSidebar"] > div > div:first-child::-webkit-scrollbar,
+    section[data-testid="stSidebar"] [data-testid="stSidebarContent"]::-webkit-scrollbar {
+        display: none !important;
+    }
+    /* Pin footer card to bottom of sidebar */
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-child {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 16rem !important;
+        background: #0b101a !important;
+        z-index: 10 !important;
+    }
+    /* Material Symbols filled variant */
+    .mat-filled {
+        font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20;
     }
 
-    /* sidebar toggle arrows – brighter for dark theme */
-    [data-testid="stHeader"] button svg {
-        color: #94a3b8 !important;
-    }
-    [data-testid="stHeader"] button:hover svg {
-        color: #e2e8f0 !important;
-    }
-    [data-testid="collapsedControl"] svg {
-        color: #94a3b8 !important;
-    }
-    [data-testid="collapsedControl"]:hover svg {
-        color: #e2e8f0 !important;
+    /* Hide sidebar toggle arrows */
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"],
+    section[data-testid="stSidebar"] button[kind="headerNoPadding"],
+    section[data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"] {
+        display: none !important;
     }
 
     /* secondary buttons (example queries) */
@@ -293,86 +336,163 @@ def inject_custom_css():
 
 
 _STAGE_CFG = {
-    "completed": ("\u2705", "#22c55e", "400"),   # green check
-    "running":   ("\U0001F504", "#3c83f6", "600"),  # blue cycle
-    "error":     ("\u274C", "#ef4444", "500"),    # red cross
-    "pending":   ("\u25CB", "#475569", "400"),    # gray circle
+    "completed": {
+        "icon": "check_circle", "icon_color": "#22c55e", "icon_fill": True,
+        "text_color": "#94a3b8", "font_weight": "400", "opacity": "1",
+        "bar": False,
+    },
+    "running": {
+        "icon": "sync", "icon_color": "#3c83f6", "icon_fill": False,
+        "text_color": "#e2e8f0", "font_weight": "600", "opacity": "1",
+        "bar": True,
+    },
+    "error": {
+        "icon": "error", "icon_color": "#ef4444", "icon_fill": True,
+        "text_color": "#ef4444", "font_weight": "500", "opacity": "1",
+        "bar": False,
+    },
+    "pending": {
+        "icon": "radio_button_unchecked", "icon_color": "#64748b",
+        "icon_fill": False, "text_color": "#64748b", "font_weight": "400",
+        "opacity": "0.5", "bar": False,
+    },
 }
+
+
+def _render_workflow_html(statuses):
+    """Build the workflow phase list as a single HTML string."""
+    items = []
+    for label, key in STAGES:
+        s = statuses.get(key, "pending")
+        cfg = _STAGE_CFG.get(s, _STAGE_CFG["pending"])
+
+        bar_html = ""
+        if cfg["bar"]:
+            bar_html = (
+                '<div style="position:absolute;left:-2px;top:4px;bottom:4px;'
+                'width:3px;background:#3c83f6;border-radius:9999px;"></div>'
+            )
+
+        fill_css = (
+            "font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20;"
+            if cfg["icon_fill"] else ""
+        )
+        icon_html = (
+            f'<span class="material-symbols-outlined" '
+            f'style="font-size:20px;color:{cfg["icon_color"]};{fill_css}">'
+            f'{cfg["icon"]}</span>'
+        )
+
+        items.append(
+            f'<div style="position:relative;display:flex;align-items:center;'
+            f'gap:0.75rem;padding:0.4rem 0.75rem;opacity:{cfg["opacity"]};">'
+            f'{bar_html}{icon_html}'
+            f'<span style="color:{cfg["text_color"]};'
+            f'font-weight:{cfg["font_weight"]};font-size:0.875rem;">'
+            f'{label}</span></div>'
+        )
+
+    return (
+        '<div style="padding:1rem 0.75rem 0;">'
+        '<div style="font-size:10px;font-weight:700;color:#94a3b8;'
+        'text-transform:uppercase;letter-spacing:0.1em;padding:0 0.75rem;'
+        'margin-bottom:1rem;">Workflow Phase</div>'
+        '<div style="display:flex;flex-direction:column;gap:0.25rem;">'
+        + "".join(items)
+        + '</div></div>'
+    )
+
+
+def _on_stage_update(trace):
+    """Callback invoked by orchestrator after each stage transition.
+    Re-renders the workflow section in the sidebar placeholder."""
+    st.session_state["pipeline_trace"] = trace
+    placeholder = st.session_state.get("_workflow_placeholder")
+    if placeholder:
+        statuses = {}
+        for _, key in STAGES:
+            entry = next((e for e in trace.entries if e.stage == key), None)
+            statuses[key] = entry.status if entry else "pending"
+        placeholder.markdown(
+            _render_workflow_html(statuses), unsafe_allow_html=True
+        )
 
 
 def render_sidebar():
     with st.sidebar:
-        # ---- Brand ----
+        # ---- Brand Header ----
         st.markdown(
-            '<h3 style="margin:0 0 2px;color:#e2e8f0;">'
-            '\U0001F916 Retail Copilot</h3>',
+            '<div style="display:flex;align-items:center;gap:0.75rem;'
+            'padding:1.25rem 1rem 1rem;border-bottom:1px solid #1e293b;">'
+            '<div style="width:2rem;height:2rem;border-radius:0.5rem;'
+            'background:#3c83f6;display:flex;align-items:center;'
+            'justify-content:center;flex-shrink:0;">'
+            '<span class="material-symbols-outlined" '
+            'style="font-size:1.15rem;color:#fff;">smart_toy</span></div>'
+            '<div>'
+            '<div style="font-size:0.875rem;font-weight:700;color:#e2e8f0;'
+            'line-height:1.2;">Retail Copilot</div>'
+            '<div style="font-size:10px;font-weight:600;color:#94a3b8;'
+            'text-transform:uppercase;letter-spacing:0.1em;'
+            'line-height:1.4;">Multi-Agent System</div>'
+            '</div></div>',
             unsafe_allow_html=True,
         )
-        st.caption("MULTI-AGENT SYSTEM")
 
-        st.divider()
-
-        # ---- Nav ----
+        # ---- Nav Link ----
         st.markdown(
-            '<p style="margin:0;padding:6px 10px;border-radius:6px;'
+            '<div style="padding:1rem 0.75rem 0.5rem;">'
+            '<div style="display:flex;align-items:center;gap:0.75rem;'
+            'padding:0.5rem 0.75rem;border-radius:0.5rem;'
             'background:rgba(60,131,246,0.1);color:#3c83f6;'
             'font-weight:500;font-size:0.875rem;">'
-            '\U0001F3E0 Dashboard</p>',
+            '<span class="material-symbols-outlined" '
+            'style="font-size:20px;color:#3c83f6;">home</span>'
+            'Home</div></div>',
             unsafe_allow_html=True,
         )
 
-        st.divider()
-
-        # ---- Workflow Phase ----
-        st.markdown(
-            '<p style="margin:0 0 8px;font-size:10px;font-weight:700;'
-            'color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;">'
-            'Workflow Phase</p>',
-            unsafe_allow_html=True,
-        )
-
+        # ---- Workflow Phase (dynamic placeholder) ----
+        workflow_placeholder = st.empty()
         statuses = _get_stage_statuses()
-        for label, key in STAGES:
-            s = statuses[key]
-            icon, color, weight = _STAGE_CFG.get(s, _STAGE_CFG["pending"])
-            opacity = "opacity:0.5;" if s == "pending" else ""
-            bar = ""
-            if s in ("running", "error"):
-                bar = (
-                    f'<span style="display:inline-block;width:3px;height:100%;'
-                    f'background:{color};border-radius:9999px;'
-                    f'position:absolute;left:0;top:0;"></span>'
-                )
-            st.markdown(
-                f'<p style="margin:0;padding:5px 8px;position:relative;{opacity}">'
-                f'{bar}'
-                f'<span style="color:{color};margin-right:6px;">{icon}</span>'
-                f'<span style="color:{color};font-weight:{weight};'
-                f'font-size:0.875rem;">{label}</span></p>',
-                unsafe_allow_html=True,
-            )
+        workflow_placeholder.markdown(
+            _render_workflow_html(statuses), unsafe_allow_html=True
+        )
+        st.session_state["_workflow_placeholder"] = workflow_placeholder
 
         # ---- Duration badge ----
         trace = st.session_state.get("pipeline_trace")
         if trace and trace.get_total_duration() > 0:
             dur = trace.get_total_duration()
             st.markdown(
-                f'<p style="margin:8px 0 0;padding:5px 8px;font-size:0.75rem;'
+                f'<div style="padding:0.5rem 1rem 0;">'
+                f'<div style="padding:0.4rem 0.6rem;font-size:0.75rem;'
                 f'color:#94a3b8;background:rgba(60,131,246,0.08);'
-                f'border-radius:6px;">'
-                f'\u23F1 Completed in '
-                f'<strong style="color:#e2e8f0;">{dur:.1f}s</strong></p>',
+                f'border-radius:0.375rem;display:flex;align-items:center;gap:0.4rem;">'
+                f'<span class="material-symbols-outlined" '
+                f'style="font-size:16px;color:#94a3b8;">timer</span>'
+                f'Completed in '
+                f'<strong style="color:#e2e8f0;">{dur:.1f}s</strong></div></div>',
                 unsafe_allow_html=True,
             )
 
-        st.divider()
-
-        # ---- Footer ----
+        # ---- Footer User Card ----
         st.markdown(
-            '<p style="margin:0;font-size:0.75rem;color:#e2e8f0;font-weight:500;">'
-            '\u2699\uFE0F GPT-4o-mini</p>'
-            '<p style="margin:2px 0 0;font-size:10px;color:#64748b;">'
-            '12 docs &middot; ChromaDB</p>',
+            '<div style="padding:0.75rem;'
+            'border-top:1px solid #1e293b;">'
+            '<div style="display:flex;align-items:center;gap:0.75rem;'
+            'padding:0.75rem;background:rgba(30,41,59,0.5);'
+            'border-radius:0.5rem;">'
+            '<div style="width:2rem;height:2rem;border-radius:9999px;'
+            'background:#334155;display:flex;align-items:center;'
+            'justify-content:center;flex-shrink:0;'
+            'font-size:0.7rem;font-weight:600;color:#94a3b8;">JD</div>'
+            '<div>'
+            '<div style="font-size:0.75rem;font-weight:500;color:#e2e8f0;'
+            'line-height:1.3;">John Doe</div>'
+            '<div style="font-size:10px;color:#64748b;'
+            'line-height:1.3;">Project Lead</div>'
+            '</div></div></div>',
             unsafe_allow_html=True,
         )
 
@@ -628,7 +748,11 @@ def main():
 
             trace = TraceLog()
             try:
-                result = run_pipeline(user_request.strip(), trace=trace)
+                result = run_pipeline(
+                    user_request.strip(),
+                    trace=trace,
+                    on_stage_update=_on_stage_update,
+                )
                 st.session_state["pipeline_result"] = result
                 st.session_state["pipeline_trace"] = trace
                 st.session_state["pipeline_status"] = "completed"

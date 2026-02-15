@@ -33,6 +33,11 @@ CRITICAL RULES:
 - If a query returns no results, record it as a gap - say "Not found in sources."
 - Do NOT add your own knowledge or assumptions beyond what the sources state.
 - Prefer specific numbers, percentages, and quotes over vague summaries.
+- Search for each query in the plan ONCE. If a search returns no useful results,
+  record the gap immediately and move on to the next query. Do NOT retry or
+  rephrase failed queries.
+- After you have searched for ALL queries, STOP searching and compile your
+  findings into the final output immediately.
 
 OUTPUT FORMAT:
 Return structured ResearchNotes with:
@@ -72,7 +77,7 @@ def run_researcher(plan: ExecutionPlan, user_request: str) -> ResearchNotes:
 
     prompt = build_researcher_prompt(plan.model_dump_json(indent=2), user_request)
 
-    result = Runner.run_sync(researcher_agent, prompt, max_turns=25)
+    result = Runner.run_sync(researcher_agent, prompt, max_turns=40)
     research: ResearchNotes = result.final_output
 
     elapsed = round(time.time() - start, 2)
