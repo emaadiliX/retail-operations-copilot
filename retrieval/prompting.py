@@ -34,7 +34,7 @@ def format_citations(chunks: List[RetrievedChunk]) -> str:
     if not chunks:
         return "No sources"
 
-    citations = list(set(chunk.citation for chunk in chunks))
+    citations = list(dict.fromkeys(chunk.citation for chunk in chunks))
     citation_lines = [f"{i}. {citation}" for i, citation in enumerate(citations, 1)]
 
     return "\n".join(citation_lines)

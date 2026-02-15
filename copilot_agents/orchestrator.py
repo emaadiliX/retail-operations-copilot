@@ -19,7 +19,6 @@ from .tracing import TraceLog
 
 
 def _warm_retrieval():
-    """Quick check that ChromaDB is reachable before we start the pipeline."""
     from retrieval.indexing import get_chroma_client
     from retrieval.config import COLLECTION_NAME
     try:
@@ -31,15 +30,41 @@ def _warm_retrieval():
         print(f"WARNING: Could not verify retrieval layer: {e}")
 
 
+def _build_unsupported_disclaimer(unsupported_claims: list) -> str:
+    """Return disclaimer text listing unsupported claims, or empty string if none."""
+    if not unsupported_claims:
+        return ""
+    claims_list = "\n".join(f"  - {claim}" for claim in unsupported_claims)
+    return (
+        "\n\n[VERIFICATION NOTICE] The following claims were Not found in sources "
+        "and may not be supported by the available evidence:\n"
+        f"{claims_list}\n"
+        "Please verify these points independently before acting on them."
+    )
+
+
+def _collect_verified_sources(draft_sources: list, verified_claims: list) -> list:
+    """Filter draft_sources to only those backing a supported claim."""
+    verified_set: set = set()
+    for claim in verified_claims:
+        if claim.verdict.strip().upper() in ("SUPPORTED", "PARTIALLY SUPPORTED"):
+            verified_set.update(claim.supporting_sources)
+
+    if not verified_set:
+        return draft_sources
+
+    filtered = [s for s in draft_sources if s in verified_set]
+    return filtered if filtered else draft_sources
+
+
 def _serialize(obj) -> str:
-    """Turn a Pydantic model into a JSON string so we can pass it between agents."""
     if hasattr(obj, "model_dump_json"):
         return obj.model_dump_json(indent=2)
     return str(obj)
 
 
 def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> PipelineResult:
-    """Run all five stages of the copilot pipeline and return the final result."""
+    """Run the full Plan -> Research -> Draft -> Verify -> Deliver pipeline."""
 
     if trace is None:
         trace = TraceLog()
@@ -48,7 +73,8 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
     _warm_retrieval()
 
     # Stage 1 - Plan
-    plan_entry = trace.begin("Planner Agent", "plan", input_preview=user_request)
+    plan_entry = trace.begin("Planner Agent", "plan",
+                             input_preview=user_request)
     try:
         plan_result = Runner.run_sync(
             planner_agent,
@@ -135,7 +161,6 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
         trace.fail(verify_entry, str(e))
         raise RuntimeError(f"Verifier Agent failed: {e}") from e
 
-    # Stage 5 - Deliver (apply corrections if verification didn't fully pass)
     deliver_entry = trace.begin(
         "Delivery", "deliver", input_preview=verification.overall_verdict
     )
@@ -143,24 +168,48 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
     verdict = verification.overall_verdict.strip().upper()
     if verdict == "PASS":
         final_deliverable = draft
+        trace.complete(deliver_entry, output_preview="PASS - draft used as-is")
     else:
-        final_deliverable = Deliverable(
-            executive_summary=(
-                verification.corrected_executive_summary
-                or draft.executive_summary
-            ),
-            client_email=(
-                verification.corrected_client_email
-                or draft.client_email
-            ),
-            action_items=(
-                verification.corrected_action_items
-                or draft.action_items
-            ),
-            sources=draft.sources,
+        disclaimer = _build_unsupported_disclaimer(
+            verification.unsupported_claims
+        )
+        used_fallback = False
+
+        if verification.corrected_executive_summary:
+            final_summary = verification.corrected_executive_summary
+        else:
+            final_summary = draft.executive_summary + disclaimer
+            used_fallback = True
+
+        if verification.corrected_client_email:
+            final_email = verification.corrected_client_email
+        else:
+            final_email = draft.client_email + disclaimer
+            used_fallback = True
+
+        final_actions = (
+            verification.corrected_action_items or draft.action_items
         )
 
-    trace.complete(deliver_entry, output_preview="Final deliverable assembled")
+        if used_fallback:
+            final_sources = draft.sources
+        else:
+            final_sources = _collect_verified_sources(
+                draft.sources, verification.verified_claims
+            )
+
+        final_deliverable = Deliverable(
+            executive_summary=final_summary,
+            client_email=final_email,
+            action_items=final_actions,
+            sources=final_sources,
+        )
+
+        fallback_note = " (with disclaimer - verifier missing corrections)" if used_fallback else ""
+        trace.complete(
+            deliver_entry,
+            output_preview=f"{verdict} - corrections applied{fallback_note}",
+        )
     trace.end_pipeline()
 
     return PipelineResult(
@@ -173,7 +222,6 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
 
 
 def format_deliverable(deliverable: Deliverable) -> str:
-    """Format a Deliverable as a readable markdown string."""
     action_rows = []
     for i, item in enumerate(deliverable.action_items, 1):
         action_rows.append(
