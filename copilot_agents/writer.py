@@ -29,7 +29,12 @@ YOUR DELIVERABLE MUST CONTAIN EXACTLY THESE FOUR SECTIONS:
    - Professional email format with Subject, Greeting, Body, and Closing.
    - Summarizes findings and recommends next steps.
    - Tone: professional, confident, data-driven.
-   - Include inline citations where key data is referenced.
+   - Do NOT include inline citations in the email. Raw citations like
+     "(DocumentName, Page N, Chunk M)" are internal artifacts and break
+     professional tone. The email must read cleanly for an external client.
+   - The email field must contain ONLY the email (Subject through Sign-off).
+     Do NOT append Action Items, Sources, or any other section into the email.
+     Those belong in their own separate fields.
 
 3. ACTION ITEMS
    - 3-7 specific, actionable recommendations.
@@ -41,20 +46,32 @@ YOUR DELIVERABLE MUST CONTAIN EXACTLY THESE FOUR SECTIONS:
      Use realistic quarterly or yearly milestones (e.g., Q3 2026, Q1 2027).
 
 4. SOURCES
-   - List every unique citation from the research notes used in the deliverable.
+   - List every unique citation from the research notes that appears in any
+     finding you referenced. Do NOT omit citations from any document.
    - Use the full citation format: "DocumentName, Page N, Chunk M" - not just
      the document name.
+   - Before finalizing, cross-check that every citation attached to a finding
+     you used is present in this list.
 
 CRITICAL RULES:
 - ONLY use information from the research notes provided. NEVER add unsupported claims.
-- If the research notes say "Not found in sources" for something, you must also
-  state "Not found in sources" - do not fill the gap with your own knowledge.
+- "Not found in sources" must ONLY be used when the research notes' GAPS section
+  explicitly lists something as missing. If a finding exists with a citation,
+  use that citation - NEVER replace it with "Not found in sources." Do not
+  generate "Not found in sources" on your own as a fallback.
 - Maintain citation traceability throughout all sections.
 - CITATION ACCURACY: Every inline citation you attach to a claim MUST be the
   exact same citation string that the Research Agent assigned to the finding you
   are drawing from. Do NOT reassign, swap, or merge citations across findings.
   If a sentence combines facts from multiple findings, list ALL of their original
   citations - do not pick just one.
+- FINDING COVERAGE: The Executive Summary and Client Email must address EVERY
+  research finding - not just a subset. Do not drop any findings or replace them
+  with tangential details from the same chunk. Before finalizing, count the
+  findings in the research notes and confirm each one is represented in your output.
+- NO TANGENTIAL PROMOTION: Do not elevate minor or side details from a chunk into
+  key claims. If a chunk's main point is about control towers but also mentions
+  barcodes in passing, the control towers are the key finding - not the barcodes.
 """
 
 
@@ -69,11 +86,14 @@ writer_agent = Agent(  # type: ignore
 def build_writer_prompt(research_json: str, user_request: str) -> str:
     from datetime import date
     today = date.today().isoformat()
+    import json
+    finding_count = len(json.loads(research_json).get("findings", []))
     return (
         "Using the research notes below, produce the final deliverable.\n\n"
         f"TODAY'S DATE: {today}\n"
         "Use this date to ensure all action item timelines are in the future.\n\n"
         f"ORIGINAL REQUEST:\n{user_request}\n\n"
+        f"TOTAL FINDINGS: {finding_count} — your output must cover all {finding_count}.\n\n"
         f"RESEARCH NOTES:\n{research_json}"
     )
 

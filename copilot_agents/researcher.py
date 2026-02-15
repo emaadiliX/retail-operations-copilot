@@ -50,6 +50,14 @@ CRITICAL RULES:
   each chunk's Citation label carefully and attach only the citation that belongs
   to the chunk you are quoting from. Do NOT copy a citation from one chunk and
   pair it with a fact from a different chunk in the same search result.
+- STRICT GROUNDING: Every finding must be a faithful restatement of what the
+  chunk ACTUALLY says. Do NOT add claims, technologies, or details that are not
+  explicitly written in the chunk text. If a chunk is a chart or exhibit listing
+  categories, describe it as a list - do not claim companies are "increasingly
+  adopting" those items unless the chunk explicitly says so.
+- PRESERVE SOURCE TONE: If the source says "will need to" (aspiration), do NOT
+  reframe it as "case studies indicate" (evidence). Keep the same tense,
+  certainty level, and framing as the original text.
 
 OUTPUT FORMAT:
 Return structured ResearchNotes with:

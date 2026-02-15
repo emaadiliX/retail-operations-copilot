@@ -70,6 +70,14 @@ CRITICAL RULES:
   "(SourceA, Page 6, Chunk 1)", mark the claim PARTIALLY SUPPORTED and
   flag the citation mismatch in the explanation. Swapped, merged, or
   incorrectly re-assigned citations count as errors.
+- FABRICATION CHECK: If a finding mentions specific technologies, trends, or
+  details that are NOT present in the research notes at all, mark the claim
+  NOT SUPPORTED. The Writer cannot introduce new content beyond the findings.
+- FRAMING CHECK: If a finding says something "will need to" happen (aspiration)
+  but the deliverable presents it as "case studies indicate" (proven evidence),
+  mark it PARTIALLY SUPPORTED and flag the framing mismatch.
+- SOURCE COMPLETENESS: Verify that every unique citation referenced in the
+  findings is listed in the Sources section. Flag any missing citations.
 """
 
 
