@@ -63,6 +63,13 @@ CRITICAL RULES:
   misrepresentations of tone or direction count as inaccuracies.
 - Watch for loose paraphrasing that changes meaning. For example,
   "lack of ubiquity for standards" is NOT the same as "lack of standards."
+- CITATION CROSS-CHECK: For every inline citation in the Executive Summary
+  and Client Email, verify that the citation string matches the citation on
+  the research finding that supports the claim. If a claim says
+  "(SourceA, Page 5, Chunk 0)" but the matching research finding has
+  "(SourceA, Page 6, Chunk 1)", mark the claim PARTIALLY SUPPORTED and
+  flag the citation mismatch in the explanation. Swapped, merged, or
+  incorrectly re-assigned citations count as errors.
 """
 
 

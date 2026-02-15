@@ -45,6 +45,11 @@ CRITICAL RULES:
   rephrase failed queries.
 - After you have searched for ALL queries, STOP searching and compile your
   findings into the final output immediately.
+- CITATION PAIRING: Each finding must use the citation from the SPECIFIC chunk
+  whose content contains the fact. When a search returns multiple chunks, read
+  each chunk's Citation label carefully and attach only the citation that belongs
+  to the chunk you are quoting from. Do NOT copy a citation from one chunk and
+  pair it with a fact from a different chunk in the same search result.
 
 OUTPUT FORMAT:
 Return structured ResearchNotes with:

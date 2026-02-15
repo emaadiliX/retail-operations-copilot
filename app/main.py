@@ -197,19 +197,18 @@ def render_action_items(deliverable):
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
-def render_sources(deliverable):
-    st.markdown("#### Sources & Citations")
-    if not deliverable.sources:
-        st.info("No sources recorded.")
-        return
-    for i, s in enumerate(deliverable.sources, 1):
-        st.markdown(f"**{i}.** {s}")
-
-
-def render_research_findings(research):
+def render_research_and_sources(research, deliverable):
     st.markdown("#### Research Summary")
     st.info(research.summary)
-    st.markdown(f"##### Findings ({len(research.findings)})")
+
+    st.markdown("#### Sources & Citations")
+    if deliverable.sources:
+        for i, s in enumerate(deliverable.sources, 1):
+            st.markdown(f"**{i}.** {s}")
+    else:
+        st.info("No sources recorded.")
+
+    st.markdown(f"#### Findings ({len(research.findings)})")
     for f in research.findings:
         st.markdown(
             f'<div class="finding-card"><p>{_escape_html(f.finding)}</p>'
@@ -218,14 +217,10 @@ def render_research_findings(research):
             unsafe_allow_html=True,
         )
     if research.gaps:
-        st.markdown("##### Information Gaps")
+        st.markdown("#### Information Gaps")
         st.warning("The following was **not found in sources**:")
         for g in research.gaps:
             st.markdown(f"- {g}")
-    if research.sources_used:
-        st.markdown("##### All Sources Referenced")
-        for i, s in enumerate(research.sources_used, 1):
-            st.markdown(f"{i}. {s}")
 
 
 def render_planning_details(plan):
@@ -435,7 +430,7 @@ def main():
 
         tabs = st.tabs([
             "Executive Summary", "Client Email", "Action Items",
-            "Sources & Citations", "Research Findings", "Execution Plan",
+            "Research & Sources", "Execution Plan",
             "Verification Details", "Agent Trace Log",
         ])
         with tabs[0]:
@@ -445,14 +440,12 @@ def main():
         with tabs[2]:
             render_action_items(result.final_deliverable)
         with tabs[3]:
-            render_sources(result.final_deliverable)
+            render_research_and_sources(result.research, result.final_deliverable)
         with tabs[4]:
-            render_research_findings(result.research)
-        with tabs[5]:
             render_planning_details(result.plan)
-        with tabs[6]:
+        with tabs[5]:
             render_verification_details(result.verification)
-        with tabs[7]:
+        with tabs[6]:
             render_trace_log(trace)
 
 

@@ -50,6 +50,11 @@ CRITICAL RULES:
 - If the research notes say "Not found in sources" for something, you must also
   state "Not found in sources" - do not fill the gap with your own knowledge.
 - Maintain citation traceability throughout all sections.
+- CITATION ACCURACY: Every inline citation you attach to a claim MUST be the
+  exact same citation string that the Research Agent assigned to the finding you
+  are drawing from. Do NOT reassign, swap, or merge citations across findings.
+  If a sentence combines facts from multiple findings, list ALL of their original
+  citations - do not pick just one.
 """
 
 
