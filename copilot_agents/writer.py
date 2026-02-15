@@ -37,9 +37,13 @@ YOUR DELIVERABLE MUST CONTAIN EXACTLY THESE FOUR SECTIONS:
      and confidence level (High / Medium / Low).
    - Confidence is based on how strongly the sources support the recommendation.
    - If evidence is weak, set confidence to Low and note the limitation.
+   - Due dates MUST be in the future relative to today's date (provided below).
+     Use realistic quarterly or yearly milestones (e.g., Q3 2026, Q1 2027).
 
 4. SOURCES
    - List every unique citation from the research notes used in the deliverable.
+   - Use the full citation format: "DocumentName, Page N, Chunk M" - not just
+     the document name.
 
 CRITICAL RULES:
 - ONLY use information from the research notes provided. NEVER add unsupported claims.
@@ -58,8 +62,12 @@ writer_agent = Agent(  # type: ignore
 
 
 def build_writer_prompt(research_json: str, user_request: str) -> str:
+    from datetime import date
+    today = date.today().isoformat()
     return (
         "Using the research notes below, produce the final deliverable.\n\n"
+        f"TODAY'S DATE: {today}\n"
+        "Use this date to ensure all action item timelines are in the future.\n\n"
         f"ORIGINAL REQUEST:\n{user_request}\n\n"
         f"RESEARCH NOTES:\n{research_json}"
     )

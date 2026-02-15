@@ -53,7 +53,12 @@ def _collect_verified_sources(draft_sources: list, verified_claims: list) -> lis
     if not verified_set:
         return draft_sources
 
-    filtered = [s for s in draft_sources if s in verified_set]
+    seen = set()
+    filtered = []
+    for s in draft_sources:
+        if s in verified_set and s not in seen:
+            seen.add(s)
+            filtered.append(s)
     return filtered if filtered else draft_sources
 
 
@@ -175,7 +180,15 @@ def run_pipeline(
 
     verdict = verification.overall_verdict.strip().upper()
     if verdict == "PASS":
-        final_deliverable = draft
+        filtered_sources = _collect_verified_sources(
+            draft.sources, verification.verified_claims
+        )
+        final_deliverable = Deliverable(
+            executive_summary=draft.executive_summary,
+            client_email=draft.client_email,
+            action_items=draft.action_items,
+            sources=filtered_sources if filtered_sources else draft.sources,
+        )
         trace.complete(deliver_entry, output_preview="PASS - draft used as-is")
         _notify()
     else:

@@ -56,6 +56,13 @@ CRITICAL RULES:
 - Do NOT approve vague or unverifiable statements.
 - You do NOT have access to the original documents - only the research notes.
   Verify claims ONLY against the research findings provided.
+- Check SEMANTIC ACCURACY, not just topic overlap. If a finding says X is
+  "an opportunity" but the claim says X is "a problem," or if a finding says
+  "reduced costs" but the claim says "elevated costs," mark the claim
+  PARTIALLY SUPPORTED or NOT SUPPORTED. Inversions, exaggerations, and
+  misrepresentations of tone or direction count as inaccuracies.
+- Watch for loose paraphrasing that changes meaning. For example,
+  "lack of ubiquity for standards" is NOT the same as "lack of standards."
 """
 
 

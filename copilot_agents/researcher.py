@@ -33,6 +33,13 @@ CRITICAL RULES:
 - If a query returns no results, record it as a gap - say "Not found in sources."
 - Do NOT add your own knowledge or assumptions beyond what the sources state.
 - Prefer specific numbers, percentages, and quotes over vague summaries.
+  When possible, include a brief direct quote from the source to anchor the finding.
+- Each finding MUST faithfully represent what the source actually says.
+  Do NOT invert the meaning (e.g., do NOT turn "opportunity to reduce costs"
+  into "causes elevated costs"). If a source describes a benefit or opportunity,
+  frame the finding accordingly - not as a problem.
+- Clearly distinguish between what the source explicitly states vs. what you
+  are interpreting. Stick to explicit statements.
 - Search for each query in the plan ONCE. If a search returns no useful results,
   record the gap immediately and move on to the next query. Do NOT retry or
   rephrase failed queries.
