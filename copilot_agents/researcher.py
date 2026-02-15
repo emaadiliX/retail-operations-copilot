@@ -52,6 +52,15 @@ researcher_agent = Agent(
 )
 
 
+def build_researcher_prompt(plan_json: str, user_request: str) -> str:
+    return (
+        "Execute the following research plan. Use the search tools to find "
+        "information for each query.\n\n"
+        f"EXECUTION PLAN:\n{plan_json}\n\n"
+        f"ORIGINAL USER REQUEST:\n{user_request}"
+    )
+
+
 def run_researcher(plan: ExecutionPlan, user_request: str) -> ResearchNotes:
     """Run the researcher on an execution plan and return the research notes."""
 
@@ -61,12 +70,7 @@ def run_researcher(plan: ExecutionPlan, user_request: str) -> ResearchNotes:
 
     start = time.time()
 
-    prompt = (
-        "Execute the following research plan. Use the search tools to find "
-        "information for each query.\n\n"
-        f"EXECUTION PLAN:\n{plan.model_dump_json(indent=2)}\n\n"
-        f"ORIGINAL USER REQUEST:\n{user_request}"
-    )
+    prompt = build_researcher_prompt(plan.model_dump_json(indent=2), user_request)
 
     result = Runner.run_sync(researcher_agent, prompt, max_turns=25)
     research: ResearchNotes = result.final_output

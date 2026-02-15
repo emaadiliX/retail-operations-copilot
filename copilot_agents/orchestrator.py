@@ -11,10 +11,10 @@ from .models import (
     VerificationReport,
     PipelineResult,
 )
-from .planner import planner_agent
-from .researcher import researcher_agent
-from .writer import writer_agent
-from .verifier import verifier_agent
+from .planner import planner_agent, build_planner_prompt
+from .researcher import researcher_agent, build_researcher_prompt
+from .writer import writer_agent, build_writer_prompt
+from .verifier import verifier_agent, build_verifier_prompt
 from .tracing import TraceLog
 
 
@@ -78,7 +78,7 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
     try:
         plan_result = Runner.run_sync(
             planner_agent,
-            f"Create an execution plan for the following business request:\n\n{user_request}",
+            build_planner_prompt(user_request),
         )
         plan: ExecutionPlan = plan_result.final_output
         trace.complete(
@@ -92,12 +92,7 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
         raise RuntimeError(f"Planner Agent failed: {e}") from e
 
     # Stage 2 - Research
-    research_input = (
-        f"Execute the following research plan. Use the search tools to find "
-        f"information for each query.\n\n"
-        f"EXECUTION PLAN:\n{_serialize(plan)}\n\n"
-        f"ORIGINAL USER REQUEST:\n{user_request}"
-    )
+    research_input = build_researcher_prompt(_serialize(plan), user_request)
     research_entry = trace.begin(
         "Research Agent", "research", input_preview=plan.task_summary
     )
@@ -118,11 +113,7 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
         raise RuntimeError(f"Research Agent failed: {e}") from e
 
     # Stage 3 - Draft
-    writer_input = (
-        f"Using the research notes below, produce the final deliverable.\n\n"
-        f"ORIGINAL REQUEST:\n{user_request}\n\n"
-        f"RESEARCH NOTES:\n{_serialize(research)}"
-    )
+    writer_input = build_writer_prompt(_serialize(research), user_request)
     draft_entry = trace.begin(
         "Writer Agent", "draft", input_preview=research.summary
     )
@@ -140,11 +131,7 @@ def run_pipeline(user_request: str, trace: Optional[TraceLog] = None) -> Pipelin
         raise RuntimeError(f"Writer Agent failed: {e}") from e
 
     # Stage 4 - Verify
-    verify_input = (
-        f"Verify the following deliverable against the research notes.\n\n"
-        f"DRAFT DELIVERABLE:\n{_serialize(draft)}\n\n"
-        f"RESEARCH NOTES (with citations):\n{_serialize(research)}"
-    )
+    verify_input = build_verifier_prompt(_serialize(draft), _serialize(research))
     verify_entry = trace.begin(
         "Verifier Agent", "verify", input_preview=draft.executive_summary[:120]
     )

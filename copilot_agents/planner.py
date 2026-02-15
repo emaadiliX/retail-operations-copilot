@@ -46,6 +46,13 @@ planner_agent = Agent(
 )
 
 
+def build_planner_prompt(user_request: str) -> str:
+    return (
+        "Create an execution plan for the following business request:\n\n"
+        + user_request
+    )
+
+
 def run_planner(user_request: str) -> ExecutionPlan:
     """Run the planner on a user request and return the execution plan."""
 
@@ -54,12 +61,7 @@ def run_planner(user_request: str) -> ExecutionPlan:
 
     start = time.time()
 
-    prompt = (
-        "Create an execution plan for the following business request:\n\n"
-        + user_request
-    )
-
-    result = Runner.run_sync(planner_agent, prompt)
+    result = Runner.run_sync(planner_agent, build_planner_prompt(user_request))
     plan: ExecutionPlan = result.final_output
 
     elapsed = round(time.time() - start, 2)

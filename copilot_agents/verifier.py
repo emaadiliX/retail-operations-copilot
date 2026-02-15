@@ -67,6 +67,14 @@ verifier_agent = Agent(
 )
 
 
+def build_verifier_prompt(draft_json: str, research_json: str) -> str:
+    return (
+        "Verify the following deliverable against the research notes.\n\n"
+        f"DRAFT DELIVERABLE:\n{draft_json}\n\n"
+        f"RESEARCH NOTES (with citations):\n{research_json}"
+    )
+
+
 def run_verifier(draft: Deliverable, research: ResearchNotes) -> VerificationReport:
     """Run the verifier on a draft deliverable and return the verification report."""
 
@@ -77,10 +85,8 @@ def run_verifier(draft: Deliverable, research: ResearchNotes) -> VerificationRep
 
     start = time.time()
 
-    prompt = (
-        "Verify the following deliverable against the research notes.\n\n"
-        f"DRAFT DELIVERABLE:\n{draft.model_dump_json(indent=2)}\n\n"
-        f"RESEARCH NOTES (with citations):\n{research.model_dump_json(indent=2)}"
+    prompt = build_verifier_prompt(
+        draft.model_dump_json(indent=2), research.model_dump_json(indent=2)
     )
 
     result = Runner.run_sync(verifier_agent, prompt)

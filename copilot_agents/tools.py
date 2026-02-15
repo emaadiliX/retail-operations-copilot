@@ -3,13 +3,14 @@
 from agents import function_tool
 
 from retrieval.retrieval import retrieve_with_context, multi_query_retrieval
+from retrieval.config import MIN_SIMILARITY_SCORE
 from retrieval.prompting import format_context_for_agent, format_citations
 
 
 @function_tool
 def search_retail_documents(query: str, top_k: int = 5) -> str:
     """Search the retail knowledge base for information related to a query."""
-    results = retrieve_with_context(query, top_k=top_k, min_score=0.3)
+    results = retrieve_with_context(query, top_k=top_k, min_score=MIN_SIMILARITY_SCORE)
 
     if not results["found"]:
         return "Not found in sources. The available documents do not contain information relevant to this query."
@@ -28,7 +29,7 @@ def multi_search_retail_documents(queries: str) -> str:
     if not query_list:
         return "No valid queries provided."
 
-    results = multi_query_retrieval(query_list, top_k_per_query=3, min_score=0.3)
+    results = multi_query_retrieval(query_list, top_k_per_query=3, min_score=MIN_SIMILARITY_SCORE)
 
     if not results["found"]:
         return "Not found in sources. None of the queries returned relevant results from the document set."

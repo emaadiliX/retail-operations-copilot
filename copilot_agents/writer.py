@@ -57,6 +57,14 @@ writer_agent = Agent(  # type: ignore
 )
 
 
+def build_writer_prompt(research_json: str, user_request: str) -> str:
+    return (
+        "Using the research notes below, produce the final deliverable.\n\n"
+        f"ORIGINAL REQUEST:\n{user_request}\n\n"
+        f"RESEARCH NOTES:\n{research_json}"
+    )
+
+
 def run_writer(research: ResearchNotes, user_request: str) -> Deliverable:
     """Run the writer on research notes and return the final deliverable."""
 
@@ -67,11 +75,7 @@ def run_writer(research: ResearchNotes, user_request: str) -> Deliverable:
 
     start = time.time()
 
-    prompt = (
-        "Using the research notes below, produce the final deliverable.\n\n"
-        f"ORIGINAL REQUEST:\n{user_request}\n\n"
-        f"RESEARCH NOTES:\n{research.model_dump_json(indent=2)}"
-    )
+    prompt = build_writer_prompt(research.model_dump_json(indent=2), user_request)
 
     result = Runner.run_sync(writer_agent, prompt)
     deliverable: Deliverable = result.final_output
