@@ -62,6 +62,38 @@ def _collect_verified_sources(draft_sources: list, verified_claims: list) -> lis
     return filtered if filtered else draft_sources
 
 
+def _fetch_chunk_texts(research: ResearchNotes) -> str:
+    """Look up the actual chunk text for every citation in the research notes.
+
+    This is a fast, local ChromaDB lookup (no LLM calls) that provides the
+    verifier with ground-truth text to cross-check against claims.
+    """
+    from retrieval.retrieval import get_collection
+    from retrieval.config import COLLECTION_NAME
+
+    collection = get_collection(COLLECTION_NAME)
+    if not collection:
+        return ""
+
+    citations = list(dict.fromkeys(f.citation for f in research.findings))
+    parts = []
+    for citation in citations:
+        try:
+            results = collection.get(
+                where={"citation": citation},
+                include=["documents"],
+            )
+            if results["documents"]:
+                parts.append(
+                    f"## {citation}\n{results['documents'][0]}"
+                )
+            else:
+                parts.append(f"## {citation}\nNOT FOUND in knowledge base.")
+        except Exception:
+            continue
+    return "\n\n---\n\n".join(parts) if parts else ""
+
+
 def _serialize(obj) -> str:
     if hasattr(obj, "model_dump_json"):
         return obj.model_dump_json(indent=2)
@@ -118,6 +150,17 @@ def run_pipeline(
             researcher_agent, research_input, max_turns=40
         )
         research: ResearchNotes = research_result.final_output
+
+        # Ensure sources_used includes every citation from findings.
+        finding_citations = list(
+            dict.fromkeys(f.citation for f in research.findings)
+        )
+        existing = set(research.sources_used)
+        for cit in finding_citations:
+            if cit not in existing:
+                research.sources_used.append(cit)
+                existing.add(cit)
+
         trace.complete(
             research_entry,
             output_preview=research.summary,
@@ -153,7 +196,10 @@ def run_pipeline(
         raise RuntimeError(f"Writer Agent failed: {e}") from e
 
     # Stage 4 - Verify
-    verify_input = build_verifier_prompt(_serialize(draft), _serialize(research))
+    chunk_texts = _fetch_chunk_texts(research)
+    verify_input = build_verifier_prompt(
+        _serialize(draft), _serialize(research), chunk_texts
+    )
     verify_entry = trace.begin(
         "Verifier Agent", "verify", input_preview=draft.executive_summary[:120]
     )

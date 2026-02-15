@@ -34,6 +34,10 @@ CRITICAL RULES:
 - Do NOT add your own knowledge or assumptions beyond what the sources state.
 - Prefer specific numbers, percentages, and quotes over vague summaries.
   When possible, include a brief direct quote from the source to anchor the finding.
+- NUMERICAL PRECISION: When a source states an exact number (e.g., "70 percent"),
+  report that exact number. Do NOT round, inflate, or add qualifiers like "over"
+  or "nearly" unless the source itself uses those words. "70 percent" must stay
+  "70 percent" — not "over 70%."
 - Each finding MUST faithfully represent what the source actually says.
   Do NOT invert the meaning (e.g., do NOT turn "opportunity to reduce costs"
   into "causes elevated costs"). If a source describes a benefit or opportunity,
@@ -50,6 +54,10 @@ CRITICAL RULES:
   each chunk's Citation label carefully and attach only the citation that belongs
   to the chunk you are quoting from. Do NOT copy a citation from one chunk and
   pair it with a fact from a different chunk in the same search result.
+- CITATION COPYING: Copy the citation string VERBATIM from the "**Citation:**"
+  label in the search results. Do NOT reconstruct it from memory or guess the
+  page/chunk numbers. If the label says "Page 3, Chunk 0", write exactly that —
+  not "Page 4, Chunk 0".
 - STRICT GROUNDING: Every finding must be a faithful restatement of what the
   chunk ACTUALLY says. Do NOT add claims, technologies, or details that are not
   explicitly written in the chunk text. If a chunk is a chart or exhibit listing

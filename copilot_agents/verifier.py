@@ -19,6 +19,9 @@ Your job is to ensure the deliverable is factually grounded in the
 research notes provided. You receive:
   (a) The draft deliverable (Executive Summary, Client Email, Action Items, Sources).
   (b) The original research notes with findings and citations.
+  (c) ORIGINAL CHUNK TEXTS: the actual text from the knowledge base for each
+      cited chunk. Use these to verify that claimed statistics actually appear
+      in the cited chunk.
 
 VERIFICATION PROCESS:
 1. Extract every factual claim from the Executive Summary and Client Email.
@@ -44,9 +47,11 @@ Return a VerificationReport with:
 - suggestions: how to fix problems found
 
 If the overall_verdict is FAIL or PARTIAL, you MUST also provide:
-- corrected_executive_summary: rewrite with unsupported claims removed or
-  replaced with "Not found in sources".
-- corrected_client_email: same treatment.
+- corrected_executive_summary: rewrite with unsupported sentences REMOVED
+  entirely. Do NOT replace them with the phrase "Not found in sources." — that
+  phrase is only for the gaps list. Simply delete the unsupported sentence and
+  ensure the remaining text reads naturally and flows as coherent prose.
+- corrected_client_email: same treatment — remove unsupported sentences cleanly.
 - corrected_action_items: remove or lower confidence on unsupported items.
 
 CRITICAL RULES:
@@ -54,8 +59,8 @@ CRITICAL RULES:
   with a citation, mark it NOT SUPPORTED.
 - "Not found in sources" is the required phrase for missing evidence.
 - Do NOT approve vague or unverifiable statements.
-- You do NOT have access to the original documents - only the research notes.
-  Verify claims ONLY against the research findings provided.
+- Verify claims against the research findings AND the original chunk texts
+  provided. The chunk texts are the ground truth from the knowledge base.
 - Check SEMANTIC ACCURACY, not just topic overlap. If a finding says X is
   "an opportunity" but the claim says X is "a problem," or if a finding says
   "reduced costs" but the claim says "elevated costs," mark the claim
@@ -78,23 +83,36 @@ CRITICAL RULES:
   mark it PARTIALLY SUPPORTED and flag the framing mismatch.
 - SOURCE COMPLETENESS: Verify that every unique citation referenced in the
   findings is listed in the Sources section. Flag any missing citations.
+- CHUNK TEXT CROSS-CHECK: For EVERY finding (not just those with statistics),
+  read the corresponding chunk text in the ORIGINAL CHUNK TEXTS section and
+  confirm the finding's TOPIC actually matches the chunk. If a finding claims
+  "robotics and analytics improve inventory accuracy" but the cited chunk text
+  discusses "lockers and pickup points," the finding is MISATTRIBUTED — mark it
+  NOT SUPPORTED and flag the citation mismatch. Check that the key nouns and
+  concepts in the finding actually appear in the cited chunk text. A finding
+  whose topic does not match its cited chunk is worse than a framing issue —
+  it means the citation points to the wrong page or chunk entirely.
 """
 
 
 verifier_agent = Agent(
     name="Verifier Agent",
     instructions=VERIFIER_INSTRUCTIONS,
-    model="gpt-4o-mini",
+    model="gpt-4o",
     output_type=VerificationReport,
 )
 
 
-def build_verifier_prompt(draft_json: str, research_json: str) -> str:
-    return (
+def build_verifier_prompt(draft_json: str, research_json: str,
+                          chunk_texts: str = "") -> str:
+    prompt = (
         "Verify the following deliverable against the research notes.\n\n"
         f"DRAFT DELIVERABLE:\n{draft_json}\n\n"
         f"RESEARCH NOTES (with citations):\n{research_json}"
     )
+    if chunk_texts:
+        prompt += f"\n\nORIGINAL CHUNK TEXTS (ground truth from knowledge base):\n{chunk_texts}"
+    return prompt
 
 
 def run_verifier(draft: Deliverable, research: ResearchNotes) -> VerificationReport:
