@@ -3,9 +3,6 @@ Evaluation set for the Retail Operations Copilot.
 Prompts are ordered by expected accuracy: strongest first, edge cases last.
 """
 
-from copilot_agents.tracing import TraceLog
-from copilot_agents.orchestrator import run_pipeline, format_deliverable
-from dotenv import load_dotenv
 import sys
 import os
 import time
@@ -15,7 +12,11 @@ import argparse
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")))
 
+from dotenv import load_dotenv
 load_dotenv()
+
+from copilot_agents.tracing import TraceLog
+from copilot_agents.orchestrator import run_pipeline, format_deliverable
 
 
 TEST_PROMPTS = [

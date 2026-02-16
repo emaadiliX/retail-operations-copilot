@@ -16,7 +16,7 @@ Twelve PDF documents covering key topics in retail operations, supply chain, and
 | GS1_SupplyChainVisibility_WhitePaper.pdf                                           | Supply chain visibility standards |
 | GS1-US-Autonomous-Fulfillment-Whitepaper-2020.pdf                                  | Autonomous fulfillment            |
 | Improving Inventory Accuracy Through Innovation.pdf                                | Inventory management              |
-| mck_retail-ops-2020_fullissue-rgb-hyperlinks-011620.pdf                            | Retail operations (McKinsey)      |
+| mck_retail-ops-2020_fullissue-rgb-hyperlinks-011620.pdf                            | Retail operations                 |
 | Omni-Channel-Strategies-and Considerations-for-CPG-Companies.pdf                   | CPG omnichannel strategies        |
 | retail-strategy-2023-2027.pdf                                                      | Retail strategy planning          |
 | Supply-chain-of-the-future.pdf                                                     | Future supply chain trends        |

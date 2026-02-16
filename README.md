@@ -78,8 +78,6 @@ You only need to run this once. Re-run it if you add or replace documents in the
 streamlit run app/main.py
 ```
 
-Open your browser at **http://localhost:8501**.
-
 ## How to Use the UI
 
 1. **Enter a question** — type a retail or CPG business question in the text box
