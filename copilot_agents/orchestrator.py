@@ -1,8 +1,99 @@
 """Runs the full Plan -> Research -> Draft -> Verify -> Deliver pipeline."""
 
+import re
 from typing import Optional, Callable
 
 from agents import Runner
+
+
+# ---------------------------------------------------------------------------
+# Prompt injection defense
+# ---------------------------------------------------------------------------
+
+_INJECTION_PATTERNS = [
+    # System prompt override / instruction hijacking
+    r"ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions|prompts|rules)",
+    r"disregard\s+(your|all|the)\s+(instructions|rules|guidelines|prompts)",
+    r"override\s+(your|all|the|system)\s+(instructions|rules|prompt)",
+    r"forget\s+(your|all|the|everything|prior)\s+(instructions|rules|context)",
+    r"do\s+not\s+follow\s+(your|the|any)\s+(instructions|rules|guidelines)",
+    r"new\s+instructions?\s*:",
+    # Role manipulation — "you are now X" or "you are a/an <dangerous-role>"
+    r"you\s+are\s+now\s+(?!analyzing|reviewing|examining|looking)",
+    r"you\s+are\s+(an?\s+)?(unrestricted|unfiltered|jailbroken|evil|hacked|general.purpose|unlimited)",
+    r"pretend\s+(you\s+are|to\s+be)",
+    r"act\s+as\s+(if|though)\s+you\s+(have\s+no|are\s+not)",
+    r"switch\s+to\s+.{0,20}?\s+mode",
+    # Dangerous keywords — jailbreak vocabulary
+    r"\b(jailbreak|DAN|do\s+anything\s+now)\b",
+    r"\b(unrestricted|unfiltered|no\s+restrictions|without\s+restrictions)\b",
+    r"answer\s+anything",
+    # Instruction / prompt extraction (typo-resilient: match the noun phrase directly)
+    r"(repeat|print|show|reveal|output|display)\s+(your|the|system)\s+(instructions|prompt|rules)",
+    r"what\s+(are|is)\s+your\s+(system\s+)?(instructions|prompt|rules)",
+    r"(your|the)\s+system\s+prompt",
+    r"(share|leak|dump|expose|give\s+me)\s+(your|the)\s+(instructions|prompt|rules)",
+    # Delimiter / context injection
+    r"```\s*system",
+    r"<\s*system\s*>",
+    r"###\s*SYSTEM",
+    r"\[INST\]",
+    r"<\|im_start\|>",
+]
+
+_COMPILED_PATTERNS = [re.compile(p, re.IGNORECASE) for p in _INJECTION_PATTERNS]
+
+
+def check_prompt_injection(user_input: str) -> Optional[str]:
+    """Return a description of the violation if prompt injection is detected, else None."""
+    for pattern in _COMPILED_PATTERNS:
+        match = pattern.search(user_input)
+        if match:
+            return f"Blocked input: detected prompt injection pattern ({match.group()!r})"
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Input relevance guard
+# ---------------------------------------------------------------------------
+
+_MIN_INPUT_WORDS = 4
+
+_OFFTOPIC_PATTERNS = [
+    r"^\s*(hi|hello|hey|yo|sup|greetings|good\s+(morning|afternoon|evening))\s*[!.?]*\s*$",
+    r"^\s*what\s+is\s+my\s+name\s*[?!.]*\s*$",
+    r"^\s*who\s+am\s+i\s*[?!.]*\s*$",
+    r"^\s*tell\s+me\s+(a\s+)?(joke|story|riddle)",
+    r"^\s*how\s+are\s+you\s*[?!.]*\s*$",
+    r"^\s*what\s+can\s+you\s+do\s*[?!.]*\s*$",
+    r"^\s*thank\s*(s|\s+you)\s*[!.]*\s*$",
+    r"^\s*(yes|no|ok|okay|sure|nope|bye|goodbye)\s*[!.?]*\s*$",
+    r"^\s*test(ing)?\s*[!.?]*\s*$",
+]
+
+_COMPILED_OFFTOPIC = [re.compile(p, re.IGNORECASE) for p in _OFFTOPIC_PATTERNS]
+
+
+def check_input_relevance(user_input: str) -> Optional[str]:
+    """Return a rejection message if the input is too short or clearly off-topic, else None."""
+    stripped = user_input.strip()
+    word_count = len(stripped.split())
+
+    if word_count < _MIN_INPUT_WORDS:
+        return (
+            f"Input too short ({word_count} words). Please enter a detailed "
+            "business question about retail or CPG operations (minimum 4 words)."
+        )
+
+    for pattern in _COMPILED_OFFTOPIC:
+        if pattern.search(stripped):
+            return (
+                "Off-topic input detected. This system handles retail and CPG "
+                "business questions only. Please enter a question about supply chain, "
+                "inventory, omnichannel strategy, or similar topics."
+            )
+
+    return None
 
 from .models import (
     ExecutionPlan,
@@ -109,6 +200,15 @@ def run_pipeline(
 
     if trace is None:
         trace = TraceLog()
+
+    # Input guards — reject malicious or irrelevant inputs before any agent runs
+    injection = check_prompt_injection(user_request)
+    if injection:
+        raise ValueError(injection)
+
+    relevance = check_input_relevance(user_request)
+    if relevance:
+        raise ValueError(relevance)
 
     def _notify():
         if on_stage_update:

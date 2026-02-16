@@ -198,23 +198,6 @@ def multi_query_retrieval(
     }
 
 
-def format_results_for_display(chunks: List[RetrievedChunk]) -> str:
-    """Format retrieved chunks as a readable string for printing."""
-    if not chunks:
-        return "No results found."
-
-    output = [f"Found {len(chunks)} relevant chunks:\n"]
-
-    for i, chunk in enumerate(chunks, 1):
-        output.append(f"[{i}] {chunk.citation}")
-        output.append(f"Similarity Score: {chunk.similarity_score:.3f}")
-        output.append(f"Text Preview:")
-        output.append(chunk.text[:300] + "..." if len(chunk.text) > 300 else chunk.text)
-        output.append("")
-
-    return "\n".join(output)
-
-
 if __name__ == "__main__":
     test_queries = [
         "What are the key challenges in omnichannel retail operations?",

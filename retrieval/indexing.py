@@ -102,7 +102,7 @@ def create_or_get_collection(
         try:
             client.delete_collection(name=collection_name)
             print(f"Deleted existing collection: {collection_name}")
-        except:
+        except Exception:
             pass
 
     collection = client.get_or_create_collection(

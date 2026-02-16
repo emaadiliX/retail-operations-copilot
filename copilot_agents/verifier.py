@@ -117,6 +117,7 @@ def build_verifier_prompt(draft_json: str, research_json: str,
 
 def run_verifier(draft: Deliverable, research: ResearchNotes) -> VerificationReport:
     """Run the verifier on a draft deliverable and return the verification report."""
+    from .orchestrator import _fetch_chunk_texts
 
     print("[Verifier] Starting...")
     print(
@@ -125,8 +126,10 @@ def run_verifier(draft: Deliverable, research: ResearchNotes) -> VerificationRep
 
     start = time.time()
 
+    chunk_texts = _fetch_chunk_texts(research)
     prompt = build_verifier_prompt(
-        draft.model_dump_json(indent=2), research.model_dump_json(indent=2)
+        draft.model_dump_json(indent=2), research.model_dump_json(indent=2),
+        chunk_texts
     )
 
     result = Runner.run_sync(verifier_agent, prompt)

@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 load_dotenv(PROJECT_ROOT / ".env")
 
-from copilot_agents.orchestrator import run_pipeline  # noqa: E402
+from copilot_agents.orchestrator import run_pipeline, check_prompt_injection, check_input_relevance  # noqa: E402
 from copilot_agents.tracing import TraceLog  # noqa: E402
 from copilot_agents.models import PipelineResult  # noqa: E402
 
@@ -411,6 +411,16 @@ def main():
                     st.rerun()
 
     if run_clicked and user_request.strip():
+        injection = check_prompt_injection(user_request.strip())
+        if injection:
+            st.error("**Input Rejected:** Your input was flagged by prompt injection defense. Please rephrase as a legitimate business question about retail or CPG operations.")
+            st.stop()
+
+        relevance = check_input_relevance(user_request.strip())
+        if relevance:
+            st.warning(f"**Invalid Input:** {relevance}")
+            st.stop()
+
         st.session_state["user_request"] = user_request.strip()
         st.session_state["pipeline_status"] = "running"
         st.session_state["pipeline_result"] = None

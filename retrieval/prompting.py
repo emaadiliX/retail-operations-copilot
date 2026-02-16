@@ -40,36 +40,6 @@ def format_citations(chunks: List[RetrievedChunk]) -> str:
     return "\n".join(citation_lines)
 
 
-def create_grounded_response_prompt(
-    query: str,
-    context: str,
-    citations: List[str]
-) -> str:
-    """Build a prompt that forces the agent to only use provided sources."""
-    prompt = f"""You are a research assistant analyzing retail operations documents.
-
-USER QUERY:
-{query}
-
-RETRIEVED CONTEXT:
-{context}
-
-AVAILABLE CITATIONS:
-{chr(10).join(f"[{i}] {cite}" for i, cite in enumerate(citations, 1))}
-
-INSTRUCTIONS:
-1. Answer the query using ONLY information from the retrieved context above.
-2. For every claim you make, cite the source using the citation format provided.
-3. If the context doesn't contain enough information to fully answer the query, clearly state:
-   "Not found in sources" and explain what information is missing.
-4. Do not make assumptions or add information not present in the context.
-5. Be specific and reference page numbers when possible.
-
-Your response:"""
-
-    return prompt
-
-
 if __name__ == "__main__":
     from .retrieval import retrieve_with_context
 

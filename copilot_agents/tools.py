@@ -2,8 +2,8 @@
 
 from agents import function_tool
 
-from retrieval.retrieval import retrieve_with_context, multi_query_retrieval, get_collection
-from retrieval.config import MIN_SIMILARITY_SCORE, COLLECTION_NAME
+from retrieval.retrieval import retrieve_with_context, multi_query_retrieval
+from retrieval.config import MIN_SIMILARITY_SCORE
 from retrieval.prompting import format_context_for_agent, format_citations
 
 
@@ -40,33 +40,4 @@ def multi_search_retail_documents(queries: str) -> str:
     return (
         f"Combined results from {len(query_list)} queries:\n\n"
         f"{context}\n\n## Citations\n{citations}"
-    )
-
-
-@function_tool
-def verify_citation(citation: str) -> str:
-    """Look up a specific citation (e.g. 'DocumentName.pdf, Page 7, Chunk 0') in the knowledge base and return the actual chunk text stored under that citation. Use this to verify that a claimed fact actually exists in the cited chunk."""
-    collection = get_collection(COLLECTION_NAME)
-    if not collection:
-        return "ERROR: Could not access the document collection."
-
-    try:
-        results = collection.get(
-            where={"citation": citation},
-            include=["documents", "metadatas"],
-        )
-    except Exception as e:
-        return f"ERROR: Lookup failed: {e}"
-
-    if not results["documents"]:
-        return f"NOT FOUND: No chunk exists with citation '{citation}'. The citation may be incorrect."
-
-    text = results["documents"][0]
-    meta = results["metadatas"][0] if results["metadatas"] else {}
-    return (
-        f"## Chunk Content for: {citation}\n"
-        f"**Document:** {meta.get('document_name', 'unknown')}\n"
-        f"**Page:** {meta.get('page_number', '?')}  |  "
-        f"**Chunk:** {meta.get('chunk_index', '?')}\n\n"
-        f"**Full Text:**\n{text}"
     )
