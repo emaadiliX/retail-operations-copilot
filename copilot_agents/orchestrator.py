@@ -130,7 +130,9 @@ def _build_unsupported_disclaimer(unsupported_claims: list) -> str:
         "\n\n[VERIFICATION NOTICE] The following claims were Not found in sources "
         "and may not be supported by the available evidence:\n"
         f"{claims_list}\n"
-        "Please verify these points independently before acting on them."
+        "Please verify these points independently before acting on them.\n"
+        "To strengthen these areas, consider providing additional source "
+        "documents covering the above topics."
     )
 
 

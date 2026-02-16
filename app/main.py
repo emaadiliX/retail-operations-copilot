@@ -15,8 +15,7 @@ from copilot_agents.tracing import TraceLog  # noqa: E402
 from copilot_agents.models import PipelineResult  # noqa: E402
 
 # pull in eval stuff so we can grade results and show test prompts in the UI
-sys.path.insert(0, str(PROJECT_ROOT / "eval"))
-from run_eval import TEST_PROMPTS, grade  # noqa: E402
+from eval.run_eval import TEST_PROMPTS, grade  # noqa: E402
 
 STAGES = [
     ("Plan", "plan"),
@@ -226,6 +225,11 @@ def render_research_and_sources(research, deliverable):
         st.warning("The following was **not found in sources**:")
         for g in research.gaps:
             st.markdown(f"- {g}")
+        st.info(
+            "The above information was not available in the knowledge base. "
+            "To get more complete results, consider adding documents covering "
+            "these topics."
+        )
 
 
 def render_planning_details(plan):
