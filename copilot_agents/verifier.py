@@ -97,6 +97,17 @@ CRITICAL RULES:
   concepts in the finding actually appear in the cited chunk text. A finding
   whose topic does not match its cited chunk is worse than a framing issue —
   it means the citation points to the wrong page or chunk entirely.
+- QUERY TOPIC RELEVANCE: You will also receive the ORIGINAL USER QUESTION.
+  Compare the user's question against the research findings and chunk texts.
+  If the user asked about a SPECIFIC topic, technology, or concept (e.g.,
+  "quantum computing", "blockchain", "IoT sensors") that does NOT appear in
+  ANY research finding or chunk text, then any claims the draft makes about
+  that topic are NOT SUPPORTED — they are hallucinations. The draft may contain
+  real findings about tangentially related subjects (e.g., general inventory
+  management), but claims specifically about the user's queried concept must
+  be marked NOT SUPPORTED if that concept never appears in the source material.
+  This is the most critical check: the system must not fabricate answers about
+  topics the knowledge base does not cover.
 """
 
 
@@ -109,12 +120,15 @@ verifier_agent = Agent(
 
 
 def build_verifier_prompt(draft_json: str, research_json: str,
-                          chunk_texts: str = "") -> str:
+                          chunk_texts: str = "",
+                          user_request: str = "") -> str:
     prompt = (
         "Verify the following deliverable against the research notes.\n\n"
         f"DRAFT DELIVERABLE:\n{draft_json}\n\n"
         f"RESEARCH NOTES (with citations):\n{research_json}"
     )
+    if user_request:
+        prompt += f"\n\nORIGINAL USER QUESTION:\n{user_request}"
     if chunk_texts:
         prompt += f"\n\nORIGINAL CHUNK TEXTS (ground truth from knowledge base):\n{chunk_texts}"
     return prompt

@@ -58,6 +58,28 @@ _OFFTOPIC_PATTERNS = [
 
 _COMPILED_OFFTOPIC = [re.compile(p, re.IGNORECASE) for p in _OFFTOPIC_PATTERNS]
 
+_RETAIL_CPG_KEYWORDS = {
+    "retail", "retailer", "retailers", "retailing",
+    "cpg", "consumer packaged goods", "consumer goods",
+    "supply chain", "supply-chain", "logistics",
+    "inventory", "warehouse", "warehousing", "distribution",
+    "fulfillment", "fulfilment", "omnichannel", "omni-channel",
+    "e-commerce", "ecommerce", "online store", "brick and mortar",
+    "store", "stores", "merchandise", "merchandising",
+    "procurement", "vendor", "suppliers", "sourcing",
+    "point of sale", "pos", "shelf", "shelves", "assortment",
+    "promotion", "pricing", "markdown", "margin",
+    "shopper", "shoppers", "consumer", "customers",
+    "trade", "wholesale", "wholesaler",
+    "goods", "products", "sku", "skus",
+    "packaging", "brand", "brands", "branding",
+    "returns", "reverse logistics", "delivery", "last mile",
+    "demand", "forecasting", "replenishment",
+    "category management", "planogram",
+    "grocery", "apparel", "fashion",
+    "digital transformation", "barcode", "rfid",
+    "sustainability", "carbon footprint",
+}
 
 def check_input_relevance(user_input: str) -> Optional[str]:
     """Return a rejection message if the input is too short or clearly off-topic, else None."""
@@ -77,6 +99,15 @@ def check_input_relevance(user_input: str) -> Optional[str]:
                 "business questions only. Please enter a question about supply chain, "
                 "inventory, omnichannel strategy, or similar topics."
             )
+
+    lower = stripped.lower()
+
+    if not any(kw in lower for kw in _RETAIL_CPG_KEYWORDS):
+        return (
+            "Your question does not appear to be about retail or CPG operations. "
+            "This system answers questions about supply chain, inventory, "
+            "omnichannel strategy, fulfillment, and related retail/CPG topics."
+        )
 
     return None
 
@@ -307,7 +338,8 @@ def run_pipeline(
         # Stage 4 - Verify
         chunk_texts = _fetch_chunk_texts(research)
         verify_input = build_verifier_prompt(
-            _serialize(draft), _serialize(research), chunk_texts
+            _serialize(draft), _serialize(research), chunk_texts,
+            user_request=user_request,
         )
         verify_entry = trace.begin(
             "Verifier Agent", "verify", input_preview=draft.executive_summary
