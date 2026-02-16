@@ -14,6 +14,10 @@ from copilot_agents.orchestrator import run_pipeline  # noqa: E402
 from copilot_agents.tracing import TraceLog  # noqa: E402
 from copilot_agents.models import PipelineResult  # noqa: E402
 
+# pull in eval stuff so we can grade results and show test prompts in the UI
+sys.path.insert(0, str(PROJECT_ROOT / "eval"))
+from run_eval import TEST_PROMPTS, grade  # noqa: E402
+
 STAGES = [
     ("Plan", "plan"),
     ("Research", "research"),
@@ -36,6 +40,7 @@ def init_session_state():
         "pipeline_status": "idle",
         "pipeline_error": None,
         "user_request": "",
+        "eval_test": None,
     }.items():
         if key not in st.session_state:
             st.session_state[key] = val
@@ -278,6 +283,26 @@ def render_verification_details(verification):
             st.markdown(f"- {s}")
 
 
+def render_eval_checks(result, test_case):
+    """Show pass/fail quality checks for an eval test prompt."""
+    checks = grade(result, test_case)
+    passed = sum(1 for _, ok, _ in checks if ok)
+    total = len(checks)
+
+    if passed == total:
+        st.success(f"Quality checks: {passed}/{total} passed")
+    else:
+        st.warning(f"Quality checks: {passed}/{total} passed")
+
+    for name, ok, detail in checks:
+        icon = "\u2705" if ok else "\u274C"
+        label = name.replace("_", " ")
+        if detail:
+            st.markdown(f"{icon} **{label}** — {detail}")
+        else:
+            st.markdown(f"{icon} **{label}**")
+
+
 def render_trace_log(trace):
     st.markdown("#### Agent Trace Log")
     icons = {"completed": "\u2705", "error": "\u274C",
@@ -373,6 +398,16 @@ def main():
             with eq_cols[i]:
                 if st.button(q, key=f"eq_{i}", use_container_width=True):
                     st.session_state["user_request"] = q
+                    st.session_state["eval_test"] = None
+                    st.rerun()
+
+        with st.expander("Eval test prompts (10 scenarios)"):
+            for t in TEST_PROMPTS:
+                label = t["id"].replace("_", " ").title()
+                if st.button(f"{label}: {t['query'][:90]}...",
+                             key=f"eval_{t['id']}", use_container_width=True):
+                    st.session_state["user_request"] = t["query"]
+                    st.session_state["eval_test"] = t
                     st.rerun()
 
     if run_clicked and user_request.strip():
@@ -428,11 +463,17 @@ def main():
 
         st.divider()
 
-        tabs = st.tabs([
+        # if this run came from an eval prompt, add the quality checks tab
+        eval_test = st.session_state.get("eval_test")
+        tab_names = [
             "Executive Summary", "Client Email", "Action Items",
             "Research & Sources", "Execution Plan",
             "Verification Details", "Agent Trace Log",
-        ])
+        ]
+        if eval_test:
+            tab_names.append("Eval Quality Checks")
+
+        tabs = st.tabs(tab_names)
         with tabs[0]:
             render_executive_summary(result.final_deliverable)
         with tabs[1]:
@@ -440,13 +481,18 @@ def main():
         with tabs[2]:
             render_action_items(result.final_deliverable)
         with tabs[3]:
-            render_research_and_sources(result.research, result.final_deliverable)
+            render_research_and_sources(
+                result.research, result.final_deliverable)
         with tabs[4]:
             render_planning_details(result.plan)
         with tabs[5]:
             render_verification_details(result.verification)
         with tabs[6]:
             render_trace_log(trace)
+        if eval_test:
+            with tabs[7]:
+                st.markdown(f"#### Eval: {eval_test['id']}")
+                render_eval_checks(result, eval_test)
 
 
 if __name__ == "__main__":
