@@ -2,6 +2,8 @@
 
 A multi-agent AI system that turns retail and CPG business questions into structured, citation-grounded deliverables. Built with the OpenAI Agents SDK, Streamlit, and ChromaDB.
 
+[![Watch the demo](https://img.youtube.com/vi/jErQ6z_qFe4/maxresdefault.jpg)](https://www.youtube.com/watch?v=jErQ6z_qFe4)
+
 ## Project Overview
 
 This project implements an **Enterprise Multi-Agent Copilot** for the Retail / CPG industry (Project #6). A user submits a business question, and four coordinated AI agents work through a five-stage pipeline to produce a decision-ready deliverable:
