@@ -1,7 +1,7 @@
 """Pydantic models that define the structured output for each agent in the pipeline."""
 
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # Planner Agent output models
@@ -105,6 +105,16 @@ class VerificationReport(BaseModel):
         default=None,
         description="Fixed action items with unsupported ones removed"
     )
+
+    @model_validator(mode='after')
+    def _enforce_verdict_consistency(self):
+        if self.unsupported_claims and self.overall_verdict == 'PASS':
+            self.overall_verdict = 'FAIL'
+        elif any('NOT SUPPORTED' in c.verdict for c in self.verified_claims) and self.overall_verdict == 'PASS':
+            self.overall_verdict = 'FAIL'
+        elif any('PARTIALLY' in c.verdict for c in self.verified_claims) and self.overall_verdict == 'PASS':
+            self.overall_verdict = 'PARTIAL'
+        return self
 
 
 # Full pipeline output

@@ -109,7 +109,7 @@ from .verifier import verifier_agent, build_verifier_prompt
 from .tracing import TraceLog
 
 
-def _warm_retrieval():
+def _warm_retrieval() -> int:
     from retrieval.indexing import get_chroma_client
     from retrieval.config import COLLECTION_NAME
     try:
@@ -117,8 +117,10 @@ def _warm_retrieval():
         collection = client.get_collection(name=COLLECTION_NAME)
         count = collection.count()
         print(f"Retrieval layer ready: {count} chunks in '{COLLECTION_NAME}'")
+        return count
     except Exception as e:
         print(f"WARNING: Could not verify retrieval layer: {e}")
+        return 0
 
 
 def _build_unsupported_disclaimer(unsupported_claims: list) -> str:
@@ -170,6 +172,7 @@ def _fetch_chunk_texts(research: ResearchNotes) -> str:
 
     citations = list(dict.fromkeys(f.citation for f in research.findings))
     parts = []
+    failed = 0
     for citation in citations:
         try:
             results = collection.get(
@@ -182,8 +185,12 @@ def _fetch_chunk_texts(research: ResearchNotes) -> str:
                 )
             else:
                 parts.append(f"## {citation}\nNOT FOUND in knowledge base.")
-        except Exception:
+        except Exception as exc:
+            failed += 1
+            print(f"WARNING: chunk lookup failed for '{citation}': {exc}")
             continue
+    if citations and failed == len(citations):
+        print("WARNING: ALL chunk text lookups failed — verifier will run without ground-truth text")
     return "\n\n---\n\n".join(parts) if parts else ""
 
 
@@ -217,7 +224,12 @@ def run_pipeline(
             on_stage_update(trace)
 
     trace.start_pipeline()
-    _warm_retrieval()
+    chunk_count = _warm_retrieval()
+    if chunk_count == 0:
+        raise ValueError(
+            "Knowledge base is empty or unavailable. "
+            "Please ensure the ChromaDB index has been built before running the pipeline."
+        )
 
     # Stage 1 - Plan
     plan_entry = trace.begin("Planner Agent", "plan",
