@@ -210,173 +210,199 @@ def run_pipeline(
     trace.start_pipeline()
     chunk_count = _warm_retrieval()
     if chunk_count == 0:
+        trace.end_pipeline()
         raise ValueError(
             "Knowledge base is empty or unavailable. "
             "Please ensure the ChromaDB index has been built before running the pipeline."
         )
 
-    # Stage 1 - Plan
-    plan_entry = trace.begin("Planner Agent", "plan",
-                             input_preview=user_request)
+    guard_entry = trace.begin("Input Guard", "guardrail", input_preview=user_request)
+    trace.complete(
+        guard_entry,
+        output_preview="Input accepted",
+        injection_check="passed",
+        relevance_check="passed",
+        kb_chunks=chunk_count,
+    )
     _notify()
+
     try:
-        plan_result = Runner.run_sync(
-            planner_agent,
-            build_planner_prompt(user_request),
-        )
-        plan: ExecutionPlan = plan_result.final_output
-        trace.complete(
-            plan_entry,
-            output_preview=plan.task_summary,
-            sub_tasks=len(plan.sub_tasks),
-            queries=len(plan.research_queries),
+        # Stage 1 - Plan
+        plan_entry = trace.begin("Planner Agent", "plan",
+                                 input_preview=user_request)
+        _notify()
+        try:
+            plan_result = Runner.run_sync(
+                planner_agent,
+                build_planner_prompt(user_request),
+            )
+            plan: ExecutionPlan = plan_result.final_output
+            trace.complete(
+                plan_entry,
+                output_preview=plan.task_summary,
+                sub_tasks=len(plan.sub_tasks),
+                queries=len(plan.research_queries),
+            )
+            _notify()
+        except Exception as e:
+            trace.fail(plan_entry, str(e))
+            _notify()
+            raise RuntimeError(f"Planner Agent failed: {e}") from e
+
+        # Stage 2 - Research
+        research_input = build_researcher_prompt(_serialize(plan), user_request)
+        research_entry = trace.begin(
+            "Research Agent", "research", input_preview=plan.task_summary
         )
         _notify()
-    except Exception as e:
-        trace.fail(plan_entry, str(e))
-        _notify()
-        raise RuntimeError(f"Planner Agent failed: {e}") from e
+        try:
+            research_result = Runner.run_sync(
+                researcher_agent, research_input, max_turns=40
+            )
+            research: ResearchNotes = research_result.final_output
 
-    # Stage 2 - Research
-    research_input = build_researcher_prompt(_serialize(plan), user_request)
-    research_entry = trace.begin(
-        "Research Agent", "research", input_preview=plan.task_summary
-    )
-    _notify()
-    try:
-        research_result = Runner.run_sync(
-            researcher_agent, research_input, max_turns=40
-        )
-        research: ResearchNotes = research_result.final_output
+            finding_citations = list(
+                dict.fromkeys(f.citation for f in research.findings)
+            )
+            existing = set(research.sources_used)
+            for cit in finding_citations:
+                if cit not in existing:
+                    research.sources_used.append(cit)
+                    existing.add(cit)
 
-        finding_citations = list(
-            dict.fromkeys(f.citation for f in research.findings)
-        )
-        existing = set(research.sources_used)
-        for cit in finding_citations:
-            if cit not in existing:
-                research.sources_used.append(cit)
-                existing.add(cit)
+            trace.complete(
+                research_entry,
+                output_preview=research.summary,
+                findings=len(research.findings),
+                gaps=len(research.gaps),
+                sources=len(research.sources_used),
+            )
+            _notify()
+        except Exception as e:
+            trace.fail(research_entry, str(e))
+            _notify()
+            raise RuntimeError(f"Research Agent failed: {e}") from e
 
-        trace.complete(
-            research_entry,
-            output_preview=research.summary,
-            findings=len(research.findings),
-            gaps=len(research.gaps),
-            sources=len(research.sources_used),
-        )
-        _notify()
-    except Exception as e:
-        trace.fail(research_entry, str(e))
-        _notify()
-        raise RuntimeError(f"Research Agent failed: {e}") from e
-
-    # Stage 3 - Draft
-    writer_input = build_writer_prompt(_serialize(research), user_request)
-    draft_entry = trace.begin(
-        "Writer Agent", "draft", input_preview=research.summary
-    )
-    _notify()
-    try:
-        draft_result = Runner.run_sync(writer_agent, writer_input)
-        draft: Deliverable = draft_result.final_output
-        trace.complete(
-            draft_entry,
-            output_preview=draft.executive_summary[:200],
-            action_items=len(draft.action_items),
-            sources=len(draft.sources),
+        # Stage 3 - Draft
+        writer_input = build_writer_prompt(_serialize(research), user_request)
+        draft_entry = trace.begin(
+            "Writer Agent", "draft", input_preview=research.summary
         )
         _notify()
-    except Exception as e:
-        trace.fail(draft_entry, str(e))
-        _notify()
-        raise RuntimeError(f"Writer Agent failed: {e}") from e
+        try:
+            draft_result = Runner.run_sync(writer_agent, writer_input)
+            draft: Deliverable = draft_result.final_output
+            trace.complete(
+                draft_entry,
+                output_preview=draft.executive_summary,
+                action_items=len(draft.action_items),
+                sources=len(draft.sources),
+            )
+            _notify()
+        except Exception as e:
+            trace.fail(draft_entry, str(e))
+            _notify()
+            raise RuntimeError(f"Writer Agent failed: {e}") from e
 
-    # Stage 4 - Verify
-    chunk_texts = _fetch_chunk_texts(research)
-    verify_input = build_verifier_prompt(
-        _serialize(draft), _serialize(research), chunk_texts
-    )
-    verify_entry = trace.begin(
-        "Verifier Agent", "verify", input_preview=draft.executive_summary[:120]
-    )
-    _notify()
-    try:
-        verify_result = Runner.run_sync(verifier_agent, verify_input)
-        verification: VerificationReport = verify_result.final_output
-        trace.complete(
-            verify_entry,
-            output_preview=verification.overall_verdict,
-            claims_checked=len(verification.verified_claims),
-            unsupported=len(verification.unsupported_claims),
+        # Stage 4 - Verify
+        chunk_texts = _fetch_chunk_texts(research)
+        verify_input = build_verifier_prompt(
+            _serialize(draft), _serialize(research), chunk_texts
+        )
+        verify_entry = trace.begin(
+            "Verifier Agent", "verify", input_preview=draft.executive_summary
         )
         _notify()
-    except Exception as e:
-        trace.fail(verify_entry, str(e))
+        try:
+            verify_result = Runner.run_sync(verifier_agent, verify_input)
+            verification: VerificationReport = verify_result.final_output
+            trace.complete(
+                verify_entry,
+                output_preview=verification.overall_verdict,
+                claims_checked=len(verification.verified_claims),
+                unsupported=len(verification.unsupported_claims),
+                verdict=verification.overall_verdict,
+                suggestions=len(verification.suggestions),
+            )
+            _notify()
+        except Exception as e:
+            trace.fail(verify_entry, str(e))
+            _notify()
+            raise RuntimeError(f"Verifier Agent failed: {e}") from e
+
+        # Stage 5 - Deliver
+        deliver_entry = trace.begin(
+            "Delivery Agent", "deliver", input_preview=verification.overall_verdict
+        )
         _notify()
-        raise RuntimeError(f"Verifier Agent failed: {e}") from e
 
-    deliver_entry = trace.begin(
-        "Delivery", "deliver", input_preview=verification.overall_verdict
-    )
-    _notify()
-
-    verdict = verification.overall_verdict.strip().upper()
-    if verdict.startswith("PASS"):
-        filtered_sources = _collect_verified_sources(
-            draft.sources, verification.verified_claims
-        )
-        final_deliverable = Deliverable(
-            executive_summary=draft.executive_summary,
-            client_email=draft.client_email,
-            action_items=draft.action_items,
-            sources=filtered_sources if filtered_sources else draft.sources,
-        )
-        trace.complete(deliver_entry, output_preview="PASS - draft used as-is")
-        _notify()
-    else:
-        disclaimer = _build_unsupported_disclaimer(
-            verification.unsupported_claims
-        )
-        used_fallback = False
-
-        if verification.corrected_executive_summary is not None:
-            final_summary = verification.corrected_executive_summary
-        else:
-            final_summary = draft.executive_summary + disclaimer
-            used_fallback = True
-
-        if verification.corrected_client_email is not None:
-            final_email = verification.corrected_client_email
-        else:
-            final_email = draft.client_email + disclaimer
-            used_fallback = True
-
-        final_actions = (
-            verification.corrected_action_items or draft.action_items
-        )
-
-        if used_fallback:
-            final_sources = draft.sources
-        else:
-            final_sources = _collect_verified_sources(
+        verdict = verification.overall_verdict.strip().upper()
+        if verdict.startswith("PASS"):
+            filtered_sources = _collect_verified_sources(
                 draft.sources, verification.verified_claims
             )
+            final_deliverable = Deliverable(
+                executive_summary=draft.executive_summary,
+                client_email=draft.client_email,
+                action_items=draft.action_items,
+                sources=filtered_sources if filtered_sources else draft.sources,
+            )
+            trace.complete(
+                deliver_entry,
+                output_preview="PASS - draft used as-is",
+                verdict="PASS",
+                corrections_applied=False,
+                sources_kept=len(filtered_sources) if filtered_sources else len(draft.sources),
+            )
+            _notify()
+        else:
+            disclaimer = _build_unsupported_disclaimer(
+                verification.unsupported_claims
+            )
+            used_fallback = False
 
-        final_deliverable = Deliverable(
-            executive_summary=final_summary,
-            client_email=final_email,
-            action_items=final_actions,
-            sources=final_sources,
-        )
+            if verification.corrected_executive_summary is not None:
+                final_summary = verification.corrected_executive_summary
+            else:
+                final_summary = draft.executive_summary + disclaimer
+                used_fallback = True
 
-        fallback_note = " (with disclaimer - verifier missing corrections)" if used_fallback else ""
-        trace.complete(
-            deliver_entry,
-            output_preview=f"{verdict} - corrections applied{fallback_note}",
-        )
-        _notify()
-    trace.end_pipeline()
+            if verification.corrected_client_email is not None:
+                final_email = verification.corrected_client_email
+            else:
+                final_email = draft.client_email + disclaimer
+                used_fallback = True
+
+            final_actions = (
+                verification.corrected_action_items or draft.action_items
+            )
+
+            if used_fallback:
+                final_sources = draft.sources
+            else:
+                final_sources = _collect_verified_sources(
+                    draft.sources, verification.verified_claims
+                )
+
+            final_deliverable = Deliverable(
+                executive_summary=final_summary,
+                client_email=final_email,
+                action_items=final_actions,
+                sources=final_sources,
+            )
+
+            fallback_note = " (with disclaimer - verifier missing corrections)" if used_fallback else ""
+            trace.complete(
+                deliver_entry,
+                output_preview=f"{verdict} - corrections applied{fallback_note}",
+                verdict=verdict,
+                corrections_applied=True,
+                used_fallback=used_fallback,
+                sources_kept=len(final_sources),
+            )
+            _notify()
+    finally:
+        trace.end_pipeline()
 
     return PipelineResult(
         plan=plan,

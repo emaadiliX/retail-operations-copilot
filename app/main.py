@@ -14,7 +14,7 @@ from copilot_agents.tracing import TraceLog  # noqa: E402
 from copilot_agents.models import PipelineResult  # noqa: E402
 
 # pull in eval stuff so we can grade results and show test prompts in the UI
-from eval.run_eval import TEST_PROMPTS, grade  # noqa: E402
+from eval.run_eval import TEST_PROMPTS  # noqa: E402
 
 STAGES = [
     ("Plan", "plan"),
@@ -38,7 +38,6 @@ def init_session_state():
         "pipeline_status": "idle",
         "pipeline_error": None,
         "user_request": "",
-        "eval_test": None,
     }.items():
         if key not in st.session_state:
             st.session_state[key] = val
@@ -300,25 +299,6 @@ def render_verification_details(verification):
             st.markdown(f"- {s}")
 
 
-def render_eval_checks(result, test_case):
-    """Show pass/fail quality checks for an eval test prompt."""
-    checks = grade(result, test_case)
-    passed = sum(1 for _, ok, _ in checks if ok)
-    total = len(checks)
-
-    if passed == total:
-        st.success(f"Quality checks: {passed}/{total} passed")
-    else:
-        st.warning(f"Quality checks: {passed}/{total} passed")
-
-    for name, ok, detail in checks:
-        icon = "\u2705" if ok else "\u274C"
-        label = name.replace("_", " ")
-        if detail:
-            st.markdown(f"{icon} **{label}** — {detail}")
-        else:
-            st.markdown(f"{icon} **{label}**")
-
 
 def render_trace_log(trace):
     st.markdown("#### Agent Trace Log")
@@ -334,11 +314,13 @@ def render_trace_log(trace):
         )
         with st.expander(f"Details — {e.agent_name}", expanded=False):
             if e.input_preview:
-                st.markdown("**Input preview:**")
-                st.text(e.input_preview[:300])
+                st.markdown('<p class="trace-label">Input preview</p>', unsafe_allow_html=True)
+                _prev = e.input_preview[:300].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                st.markdown(f'<pre class="trace-preview">{_prev}</pre>', unsafe_allow_html=True)
             if e.output_preview:
-                st.markdown("**Output preview:**")
-                st.text(e.output_preview[:400])
+                st.markdown('<p class="trace-label">Output preview</p>', unsafe_allow_html=True)
+                _prev = e.output_preview[:400].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                st.markdown(f'<pre class="trace-preview">{_prev}</pre>', unsafe_allow_html=True)
             if e.error_message:
                 st.error(f"Error: {e.error_message}")
             if e.metadata:
@@ -346,7 +328,7 @@ def render_trace_log(trace):
                 st.json(e.metadata)
     st.metric("Total Pipeline Duration", f"{trace.get_total_duration():.1f}s")
     with st.expander("Raw Trace JSON"):
-        st.json(trace.to_list())
+        st.json(trace.to_dict())
 
 
 def render_summary_metrics(result, trace):
@@ -372,7 +354,7 @@ def _escape_html(text: str) -> str:
 def main():
     st.set_page_config(
         page_title="Retail Copilot",
-        page_icon="\U0001F916",
+        page_icon="\u25C8",
         layout="wide",
         initial_sidebar_state="expanded",
     )
@@ -415,7 +397,6 @@ def main():
             with eq_cols[i]:
                 if st.button(q, key=f"eq_{i}", use_container_width=True):
                     st.session_state["user_request"] = q
-                    st.session_state["eval_test"] = None
                     st.rerun()
 
         with st.expander("Eval test prompts (10 scenarios)"):
@@ -424,7 +405,6 @@ def main():
                 if st.button(f"{label}: {t['query'][:90]}...",
                              key=f"eval_{t['id']}", use_container_width=True):
                     st.session_state["user_request"] = t["query"]
-                    st.session_state["eval_test"] = t
                     st.rerun()
 
     if run_clicked and user_request.strip():
@@ -490,17 +470,11 @@ def main():
 
         st.divider()
 
-        # if this run came from an eval prompt, add the quality checks tab
-        eval_test = st.session_state.get("eval_test")
-        tab_names = [
+        tabs = st.tabs([
             "Executive Summary", "Client Email", "Action Items",
             "Research & Sources", "Execution Plan",
             "Verification Details", "Agent Trace Log",
-        ]
-        if eval_test:
-            tab_names.append("Eval Quality Checks")
-
-        tabs = st.tabs(tab_names)
+        ])
         with tabs[0]:
             render_executive_summary(result.final_deliverable)
         with tabs[1]:
@@ -516,10 +490,6 @@ def main():
             render_verification_details(result.verification)
         with tabs[6]:
             render_trace_log(trace)
-        if eval_test:
-            with tabs[7]:
-                st.markdown(f"#### Eval: {eval_test['id']}")
-                render_eval_checks(result, eval_test)
 
 
 if __name__ == "__main__":

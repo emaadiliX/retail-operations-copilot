@@ -25,8 +25,8 @@ class TraceEntry:
             "stage": self.stage,
             "status": self.status,
             "duration_seconds": round(self.duration_seconds, 2),
-            "input_preview": self.input_preview[:200],
-            "output_preview": self.output_preview[:300],
+            "input_preview": self.input_preview[:300],
+            "output_preview": self.output_preview[:400],
             "error": self.error_message,
             "metadata": self.metadata,
         }
@@ -116,3 +116,9 @@ class TraceLog:
 
     def to_list(self):
         return [e.to_dict() for e in self.entries]
+
+    def to_dict(self):
+        return {
+            "total_duration_seconds": self.get_total_duration(),
+            "steps": [{"step": i, **e.to_dict()} for i, e in enumerate(self.entries, 1)],
+        }
