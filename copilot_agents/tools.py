@@ -10,7 +10,10 @@ from retrieval.prompting import format_context_for_agent, format_citations
 @function_tool
 def search_retail_documents(query: str, top_k: int = 5) -> str:
     """Search the retail knowledge base for information related to a query."""
-    results = retrieve_with_context(query, top_k=top_k, min_score=MIN_SIMILARITY_SCORE)
+    try:
+        results = retrieve_with_context(query, top_k=top_k, min_score=MIN_SIMILARITY_SCORE)
+    except Exception as e:
+        return f"ERROR: Search infrastructure failure — {str(e)}. This is a system error, not a missing-evidence gap. Record this as a system error, not an information gap."
 
     if not results["found"]:
         return "Not found in sources. The available documents do not contain information relevant to this query."
@@ -29,7 +32,10 @@ def multi_search_retail_documents(queries: str) -> str:
     if not query_list:
         return "No valid queries provided."
 
-    results = multi_query_retrieval(query_list, top_k_per_query=3, min_score=MIN_SIMILARITY_SCORE)
+    try:
+        results = multi_query_retrieval(query_list, top_k_per_query=3, min_score=MIN_SIMILARITY_SCORE)
+    except Exception as e:
+        return f"ERROR: Search infrastructure failure — {str(e)}. This is a system error, not a missing-evidence gap. Record this as a system error, not an information gap."
 
     if not results["found"]:
         return "Not found in sources. None of the queries returned relevant results from the document set."

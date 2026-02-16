@@ -5,35 +5,25 @@ from typing import Optional, Callable
 
 from agents import Runner
 
-
-# ---------------------------------------------------------------------------
-# Prompt injection defense
-# ---------------------------------------------------------------------------
-
 _INJECTION_PATTERNS = [
-    # System prompt override / instruction hijacking
     r"ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions|prompts|rules)",
     r"disregard\s+(your|all|the)\s+(instructions|rules|guidelines|prompts)",
     r"override\s+(your|all|the|system)\s+(instructions|rules|prompt)",
     r"forget\s+(your|all|the|everything|prior)\s+(instructions|rules|context)",
     r"do\s+not\s+follow\s+(your|the|any)\s+(instructions|rules|guidelines)",
     r"new\s+instructions?\s*:",
-    # Role manipulation — "you are now X" or "you are a/an <dangerous-role>"
     r"you\s+are\s+now\s+(?!analyzing|reviewing|examining|looking)",
     r"you\s+are\s+(an?\s+)?(unrestricted|unfiltered|jailbroken|evil|hacked|general.purpose|unlimited)",
     r"pretend\s+(you\s+are|to\s+be)",
     r"act\s+as\s+(if|though)\s+you\s+(have\s+no|are\s+not)",
     r"switch\s+to\s+.{0,20}?\s+mode",
-    # Dangerous keywords — jailbreak vocabulary
     r"\b(jailbreak|DAN|do\s+anything\s+now)\b",
     r"\b(unrestricted|unfiltered|no\s+restrictions|without\s+restrictions)\b",
     r"answer\s+anything",
-    # Instruction / prompt extraction (typo-resilient: match the noun phrase directly)
     r"(repeat|print|show|reveal|output|display)\s+(your|the|system)\s+(instructions|prompt|rules)",
     r"what\s+(are|is)\s+your\s+(system\s+)?(instructions|prompt|rules)",
     r"(your|the)\s+system\s+prompt",
     r"(share|leak|dump|expose|give\s+me)\s+(your|the)\s+(instructions|prompt|rules)",
-    # Delimiter / context injection
     r"```\s*system",
     r"<\s*system\s*>",
     r"###\s*SYSTEM",
@@ -51,11 +41,6 @@ def check_prompt_injection(user_input: str) -> Optional[str]:
         if match:
             return f"Blocked input: detected prompt injection pattern ({match.group()!r})"
     return None
-
-
-# ---------------------------------------------------------------------------
-# Input relevance guard
-# ---------------------------------------------------------------------------
 
 _MIN_INPUT_WORDS = 4
 
@@ -210,7 +195,6 @@ def run_pipeline(
     if trace is None:
         trace = TraceLog()
 
-    # Input guards — reject malicious or irrelevant inputs before any agent runs
     injection = check_prompt_injection(user_request)
     if injection:
         raise ValueError(injection)
@@ -265,7 +249,6 @@ def run_pipeline(
         )
         research: ResearchNotes = research_result.final_output
 
-        # Ensure sources_used includes every citation from findings.
         finding_citations = list(
             dict.fromkeys(f.citation for f in research.findings)
         )
@@ -339,7 +322,7 @@ def run_pipeline(
     _notify()
 
     verdict = verification.overall_verdict.strip().upper()
-    if verdict == "PASS":
+    if verdict.startswith("PASS"):
         filtered_sources = _collect_verified_sources(
             draft.sources, verification.verified_claims
         )
@@ -357,13 +340,13 @@ def run_pipeline(
         )
         used_fallback = False
 
-        if verification.corrected_executive_summary:
+        if verification.corrected_executive_summary is not None:
             final_summary = verification.corrected_executive_summary
         else:
             final_summary = draft.executive_summary + disclaimer
             used_fallback = True
 
-        if verification.corrected_client_email:
+        if verification.corrected_client_email is not None:
             final_email = verification.corrected_client_email
         else:
             final_email = draft.client_email + disclaimer

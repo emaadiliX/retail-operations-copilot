@@ -47,7 +47,7 @@ def generate_embeddings(texts: List[str], model: str = EMBEDDING_MODEL) -> List[
             input=texts,
             model=model
         )
-        embeddings = [item.embedding for item in response.data]
+        embeddings = [item.embedding for item in sorted(response.data, key=lambda x: x.index)]
         return embeddings
 
     except Exception as e:
