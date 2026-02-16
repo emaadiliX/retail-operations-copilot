@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import sys
 import os
 import time
+import re
 import argparse
 
 sys.path.insert(0, os.path.abspath(
@@ -109,6 +110,11 @@ def grade(pipeline_result, test):
         for a in d.action_items
     )
     results.append(("action_fields_filled", fields_ok, ""))
+
+    date_pattern = re.compile(r"^Q[1-4]\s+\d{4}$")
+    bad_dates = [a.due_date for a in d.action_items if not date_pattern.match(a.due_date.strip())]
+    results.append(("action_dates_valid", len(bad_dates) == 0,
+                    f"bad: {bad_dates}" if bad_dates else ""))
 
     ns = len(d.sources)
     results.append(("enough_sources", ns >= test["min_sources"],

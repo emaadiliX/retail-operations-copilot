@@ -415,3 +415,59 @@ hr { border-color: #1e293b !important; }
 
 .text-muted { color: #64748b !important; }
 .text-muted-italic { color: #64748b !important; font-style: italic; }
+
+/* Action items table */
+
+.action-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #1e293b;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+.action-table th {
+    background: rgba(30,41,59,0.5);
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.6rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #1e293b;
+}
+.action-table td {
+    padding: 0.75rem 1rem;
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(30,41,59,0.5);
+    vertical-align: top;
+}
+.action-table tr:last-child td {
+    border-bottom: none;
+}
+.action-table td:first-child {
+    color: #64748b;
+    font-weight: 600;
+    width: 2.5rem;
+}
+.conf-pill {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+.conf-high {
+    background: rgba(34,197,94,0.15);
+    color: #22c55e;
+}
+.conf-medium {
+    background: rgba(245,158,11,0.15);
+    color: #f59e0b;
+}
+.conf-low {
+    background: rgba(239,68,68,0.15);
+    color: #ef4444;
+}

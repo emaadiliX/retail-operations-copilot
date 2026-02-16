@@ -1,6 +1,6 @@
 """Pydantic models that define the structured output for each agent in the pipeline."""
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -49,9 +49,11 @@ class ResearchNotes(BaseModel):
 
 class ActionItem(BaseModel):
     action: str = Field(description="What needs to be done")
-    owner: str = Field(description="Who is responsible")
-    due_date: str = Field(description="Suggested timeline or deadline")
-    confidence: str = Field(description="High, Medium, or Low based on source support")
+    owner: str = Field(description="Responsible business role or function, e.g. Supply Chain Director, VP Merchandising")
+    due_date: str = Field(description="Future quarter or year milestone, e.g. Q3 2026 or Q1 2027")
+    confidence: Literal["High", "Medium", "Low"] = Field(
+        description="High, Medium, or Low based on how strongly the sources support this recommendation"
+    )
 
 
 class Deliverable(BaseModel):

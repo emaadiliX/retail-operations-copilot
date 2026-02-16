@@ -3,7 +3,6 @@ import re
 from pathlib import Path
 
 import streamlit as st
-import pandas as pd
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -191,14 +190,28 @@ def render_action_items(deliverable):
     if not deliverable.action_items:
         st.info("No action items generated.")
         return
-    rows = []
+    conf_cls = {"High": "conf-high", "Medium": "conf-medium", "Low": "conf-low"}
+    rows_html = []
     for i, item in enumerate(deliverable.action_items, 1):
-        conf = item.confidence.strip().capitalize()
-        dot = {"High": "\U0001F7E2", "Medium": "\U0001F7E1"}.get(
-            conf.split()[0] if conf else "", "\U0001F534")
-        rows.append({"#": i, "Action": item.action, "Owner": item.owner,
-                     "Due Date": item.due_date, "Confidence": f"{dot} {conf}"})
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        cls = conf_cls.get(item.confidence, "conf-low")
+        rows_html.append(
+            f"<tr>"
+            f"<td>{i}</td>"
+            f"<td>{_escape_html(item.action)}</td>"
+            f"<td>{_escape_html(item.owner)}</td>"
+            f"<td>{_escape_html(item.due_date)}</td>"
+            f'<td><span class="conf-pill {cls}">{_escape_html(item.confidence)}</span></td>'
+            f"</tr>"
+        )
+    table_html = (
+        '<table class="action-table">'
+        "<thead><tr>"
+        "<th>#</th><th>Action</th><th>Owner</th><th>Due Date</th><th>Confidence</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows_html)}</tbody>"
+        "</table>"
+    )
+    st.markdown(table_html, unsafe_allow_html=True)
 
 
 def render_research_and_sources(research, deliverable):

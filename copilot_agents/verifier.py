@@ -33,8 +33,13 @@ VERIFICATION PROCESS:
      detail or interpretation not in the source.
    - NOT SUPPORTED: no matching finding in the research notes -
      this is a potential hallucination.
-4. Check Action Items: each recommendation's confidence should match
-   the evidence strength in the research notes.
+4. Check Action Items:
+   - Each recommendation's confidence (High/Medium/Low) must match the
+     evidence strength in the research notes.
+   - Due dates must be future quarterly or yearly milestones (e.g., Q3 2026).
+     Flag any that are vague ("ASAP", "TBD") or in the past.
+   - Owners must be business roles (e.g., "Supply Chain Director"), not
+     personal names or generic terms like "Team".
 
 OUTPUT:
 Return a VerificationReport with:

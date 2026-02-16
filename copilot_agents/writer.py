@@ -38,12 +38,17 @@ YOUR DELIVERABLE MUST CONTAIN EXACTLY THESE FOUR SECTIONS:
 
 3. ACTION ITEMS
    - 3-7 specific, actionable recommendations.
-   - Each item must include: action, suggested owner/role, suggested timeline,
-     and confidence level (High / Medium / Low).
+   - Each item must include:
+     * action: a concrete, measurable step.
+     * owner: a business ROLE (e.g., "Supply Chain Director",
+       "VP of Merchandising", "Head of E-Commerce"). Never use personal
+       names or generic terms like "Team" or "Management".
+     * due_date: a future quarterly milestone in the format
+       "Q3 2026" or "Q1 2027". Must be after today's date. Never use
+       vague terms like "ASAP", "TBD", or "Immediately".
+     * confidence: exactly one of High, Medium, or Low.
    - Confidence is based on how strongly the sources support the recommendation.
    - If evidence is weak, set confidence to Low and note the limitation.
-   - Due dates MUST be in the future relative to today's date (provided below).
-     Use realistic quarterly or yearly milestones (e.g., Q3 2026, Q1 2027).
 
 4. SOURCES
    - List every unique citation from the research notes that appears in any
