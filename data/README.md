@@ -25,9 +25,8 @@ Twelve PDF documents covering key topics in retail operations, supply chain, and
 
 ## Source Type
 
-All documents are **publicly available** whitepapers, reports, and ebooks published by
-organizations such as Deloitte, McKinsey, GS1, and Optoro. None of the documents contain
-confidential, proprietary, or synthetic data.
+All documents are **publicly available** whitepapers and reports. They do not contain any
+confidential, proprietary, or sensitive information.
 
 ## How the Retrieval Layer Uses These Documents
 
