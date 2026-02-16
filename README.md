@@ -2,7 +2,11 @@
 
 A multi-agent AI system that turns retail and CPG business questions into structured, citation-grounded deliverables. Built with the OpenAI Agents SDK, Streamlit, and ChromaDB.
 
-[![Watch the demo](https://img.youtube.com/vi/jErQ6z_qFe4/maxresdefault.jpg)](https://www.youtube.com/watch?v=jErQ6z_qFe4)
+**Watch the demo:**
+
+<a href="https://www.youtube.com/watch?v=jErQ6z_qFe4" target="_blank">
+  <img src="https://img.youtube.com/vi/jErQ6z_qFe4/maxresdefault.jpg" width="400" alt="Watch the demo">
+</a>
 
 ## Project Overview
 
